@@ -85,6 +85,55 @@
             opacity: 0.8; 
             z-index: 1000; 
         }
+
+        /* Paste-to-top toast prompt */
+        #paste-toast {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(15, 15, 15, 0.92);
+            color: #fff;
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 14px;
+            font-family: sans-serif;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            white-space: nowrap;
+        }
+        #paste-toast.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+        #paste-toast .toast-msg {
+            color: #e0e0e0;
+        }
+        #paste-toast button {
+            border: none;
+            border-radius: 7px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        #paste-toast button:hover { opacity: 0.85; }
+        #toast-yes {
+            background: #22c55e;
+            color: #fff;
+        }
+        #toast-no {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
     </style>
 </head>
 <body id="main-body" class="bg-white">
@@ -128,6 +177,13 @@ Settings and scroll position are now saved locally in your browser.
 
     <div id="status" class="status-indicator">Stopped</div>
 
+    <!-- Paste-to-top toast -->
+    <div id="paste-toast">
+        <span class="toast-msg">📋 Text pasted. Jump to top?</span>
+        <button id="toast-yes">Go to Top</button>
+        <button id="toast-no">Stay Here</button>
+    </div>
+
     <script>
         // DOM Elements
         const container = document.getElementById('scroll-container');
@@ -135,6 +191,7 @@ Settings and scroll position are now saved locally in your browser.
         const body = document.getElementById('main-body');
         const toolbar = document.getElementById('toolbar');
         const status = document.getElementById('status');
+        const pasteToast = document.getElementById('paste-toast');
         
         const fontFamilySelect = document.getElementById('font-family');
         const fontSizeInput = document.getElementById('font-size-input');
@@ -144,20 +201,33 @@ Settings and scroll position are now saved locally in your browser.
         let isScrolling = false;
         let lastMouseY = 0;
         let animationFrame;
+        let toastDismissTimer = null;
         const STORAGE_KEY = 'teleprompter_local_settings';
 
-        /**
-         * Scroll Sensitivity Configuration
-         * Browsers typically run at 60fps. 
-         * To achieve ~1px every 0.99s:
-         * 1 / 0.99 = 1.01 pixels per second.
-         * 1.01 / 60 = 0.0168 pixels per frame.
-         */
-        const MIN_SPEED = 0.0168; // ~1px every 0.99 seconds
-        const MAX_SPEED = 2.0;    // Reduced max speed for finer control overall
-
-        // Used to track sub-pixel movements since scrollTop only accepts integers
+        const MIN_SPEED = 0.0168;
+        const MAX_SPEED = 2.0;
         let decimalAccumulator = 0;
+
+        // --- PASTE TOAST ---
+        function showPasteToast() {
+            clearTimeout(toastDismissTimer);
+            pasteToast.classList.add('visible');
+            // Auto-dismiss after 6 seconds if no action taken
+            toastDismissTimer = setTimeout(hidePasteToast, 6000);
+        }
+
+        function hidePasteToast() {
+            clearTimeout(toastDismissTimer);
+            pasteToast.classList.remove('visible');
+        }
+
+        document.getElementById('toast-yes').addEventListener('click', () => {
+            container.scrollTo({ top: 0, behavior: 'smooth' });
+            hidePasteToast();
+            saveData();
+        });
+
+        document.getElementById('toast-no').addEventListener('click', hidePasteToast);
 
         // --- LOCAL STORAGE OPERATIONS ---
         function saveData() {
@@ -203,14 +273,9 @@ Settings and scroll position are now saved locally in your browser.
         function scrollLoop() {
             if (!isScrolling) return;
             const windowHeight = window.innerHeight;
-            
-            // Calculate ratio (0 at top, 1 at bottom)
             const ratio = lastMouseY / windowHeight;
-            
-            // Linear speed calculation
             const scrollSpeed = MIN_SPEED + (ratio * (MAX_SPEED - MIN_SPEED));
             
-            // Accumulate decimal values to handle sub-pixel speeds correctly
             decimalAccumulator += scrollSpeed;
             
             if (decimalAccumulator >= 1) {
@@ -279,6 +344,17 @@ Settings and scroll position are now saved locally in your browser.
             }
         });
 
+        // Detect paste and show toast if scrolled down
+        content.addEventListener('paste', () => {
+            // Wait a tick for the pasted content to land in the DOM
+            setTimeout(() => {
+                if (container.scrollTop > 100) {
+                    showPasteToast();
+                }
+                saveData();
+            }, 50);
+        });
+
         let debounceTimer;
         content.addEventListener('input', () => {
             clearTimeout(debounceTimer);
@@ -302,7 +378,6 @@ Settings and scroll position are now saved locally in your browser.
         });
 
         window.onload = loadData;
-
     </script>
 </body>
 </html>
