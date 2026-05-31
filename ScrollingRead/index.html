@@ -180,8 +180,8 @@ Settings and scroll position are now saved locally in your browser.
     <!-- Paste-to-top toast -->
     <div id="paste-toast">
         <span class="toast-msg">📋 Text pasted. Jump to top?</span>
-        <button id="toast-yes">Go to Top</button>
-        <button id="toast-no">Stay Here</button>
+        <button id="toast-yes" tabindex="-1">Go to Top</button>
+        <button id="toast-no" tabindex="-1">Stay Here</button>
     </div>
 
     <script>
@@ -328,8 +328,10 @@ Settings and scroll position are now saved locally in your browser.
             }
             if (e.key === 'Enter') {
                 if (document.activeElement !== content) {
+                    e.preventDefault();
                     isScrolling ? stopScrolling() : startScrolling();
                 } else if (e.ctrlKey) {
+                    e.preventDefault();
                     isScrolling ? stopScrolling() : startScrolling();
                     content.blur();
                 }
