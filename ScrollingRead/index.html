@@ -35,6 +35,14 @@
             padding-bottom: 70vh; 
             padding-top: 100px; 
         }
+
+        /* 双重保险：强制内容区域内所有粘贴进来的标签元素继承全局前景色，并隐藏自带底色 */
+        #content-area * {
+            color: inherit !important;
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
         .toolbar { 
             position: fixed; 
             top: 0; 
@@ -177,7 +185,6 @@ Settings and scroll position are now saved locally in your browser.
 
     <div id="status" class="status-indicator">Stopped</div>
 
-    <!-- Paste-to-top toast -->
     <div id="paste-toast">
         <span class="toast-msg">📋 Text pasted. Jump to top?</span>
         <button id="toast-yes" tabindex="-1">Go to Top</button>
@@ -346,9 +353,13 @@ Settings and scroll position are now saved locally in your browser.
             }
         });
 
-        // Detect paste and show toast if scrolled down
-        content.addEventListener('paste', () => {
-            // Wait a tick for the pasted content to land in the DOM
+        // 拦截粘贴事件：强制作为纯文本插入，移除所有富文本前景色/背景色干扰
+        content.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+
+            // 保持原有的 Toast 逻辑和保存逻辑
             setTimeout(() => {
                 if (container.scrollTop > 100) {
                     showPasteToast();
