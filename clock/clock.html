@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Wall Clock - Smooth Sweep</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #eef1f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* Prevents browser window bounce/scroll */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Outer scalable container wrapper */
+        .scaler-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            will-change: transform;
+        }
+
+        /* Base Clock Frame Container (Locked at standard 1:1 aspect scale) */
+        .clock-container {
+            position: relative;
+            width: 480px;
+            height: 480px;
+        }
+
+        /* Bold Black Bezel Outer Ring */
+        .clock-bezel {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            border-radius: 50%;
+            padding: 24px; 
+            box-shadow: 
+                0 15px 35px rgba(0, 0, 0, 0.15),
+                0 5px 15px rgba(0, 0, 0, 0.1),
+                inset 0 4px 10px rgba(255, 255, 255, 0.05),
+                inset 0 -4px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        /* White Dial Face */
+        .clock-face {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        /* Branding Text Layout */
+        .brand-name {
+            position: absolute;
+            top: 26%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 2.5px;
+            color: #2c2c2c;
+            user-select: none;
+        }
+
+        .brand-logo {
+            position: absolute;
+            bottom: 24%;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            opacity: 0.4;
+            user-select: none;
+        }
+
+        /* Universal Dial Ticks Container */
+        .ticks-container, .numbers-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        /* Individual Tick Baseline */
+        .tick {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            left: calc(50% - 1px);
+            top: 0;
+            transform-origin: center center;
+        }
+
+        /* Minute Ticks (Short & Thin) */
+        .tick::before {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 12px;
+            background-color: #999999;
+        }
+
+        /* Hour Ticks (Thicker & Longer) */
+        .tick.hour-tick {
+            width: 3.5px;
+            left: calc(50% - 1.75px);
+        }
+        .tick.hour-tick::before {
+            height: 22px;
+            background-color: #111111;
+        }
+
+        /* Special Red 12 O'Clock Tick */
+        .tick.twelve-tick::before {
+            background-color: #cc0001;
+        }
+
+        /* Arabic Numerals Styling */
+        .number {
+            position: absolute;
+            font-size: 52px;
+            font-weight: 300;
+            color: #151515;
+            transform: translate(-50%, -50%);
+            user-select: none;
+        }
+
+        /* Center Axis Pin Overlay */
+        .center-pin {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background-color: #cc0001;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        /* Clock Hands Base Styling */
+        .hand {
+            position: absolute;
+            border-radius: 1px;
+            /* Using will-change optimizations for ultra-smooth sub-pixel animations */
+            will-change: transform; 
+        }
+
+        /* Hour Hand - Bold & Shorter */
+        .hour-hand {
+            width: 7.5px;
+            height: 105px;
+            background-color: #111111;
+            left: calc(50% - 3.75px);
+            top: calc(50% - 105px);
+            transform-origin: 50% 100%;
+            z-index: 7;
+        }
+
+        /* Minute Hand - Longer & Intermediate Width */
+        .minute-hand {
+            width: 4.5px;
+            height: 165px;
+            background-color: #111111;
+            left: calc(50% - 2.25px);
+            top: calc(50% - 165px);
+            transform-origin: 50% 100%;
+            z-index: 8;
+        }
+
+        /* Second Hand - Ultra-thin Red with Counterweight Tail */
+        .second-hand {
+            width: 1.5px;
+            height: 215px; 
+            background-color: #cc0001;
+            left: calc(50% - 0.75px);
+            top: calc(50% - 172px); 
+            transform-origin: 50% 172px;
+            z-index: 9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scaler-wrapper" id="scalerWrapper">
+        <div class="clock-container">
+            <div class="clock-bezel">
+                <div class="clock-face" id="clockFace">
+                    
+                    <!-- Brand Markings referencing image_dffdbd.png -->
+                    <div class="brand-name">TIMEX</div>
+                    <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2c2c2c" stroke-width="2">
+                        <circle cx="12" cy="12" r="6"/>
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                    </svg>
+
+                    <!-- Populated via JS -->
+                    <div class="ticks-container" id="ticksContainer"></div>
+                    <div class="numbers-container" id="numbersContainer"></div>
+
+                    <!-- Clock Hands -->
+                    <div class="hand hour-hand" id="hourHand"></div>
+                    <div class="hand minute-hand" id="minuteHand"></div>
+                    <div class="hand second-hand" id="secondHand"></div>
+                    
+                    <!-- Center pin pivot cap -->
+                    <div class="center-pin"></div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ticksContainer = document.getElementById('ticksContainer');
+        const numbersContainer = document.getElementById('numbersContainer');
+        const hourHand = document.getElementById('hourHand');
+        const minuteHand = document.getElementById('minuteHand');
+        const secondHand = document.getElementById('secondHand');
+        const scalerWrapper = document.getElementById('scalerWrapper');
+
+        // 1. Mouse Scroll Sizing Controls
+        let currentScale = 1.0;
+        const minScale = 0.25;
+        const maxScale = 2.20;
+        const scaleStep = 0.06;
+
+        window.addEventListener('wheel', (event) => {
+            event.preventDefault(); 
+            if (event.deltaY < 0) {
+                currentScale = Math.min(maxScale, currentScale + scaleStep);
+            } else {
+                currentScale = Math.max(minScale, currentScale - scaleStep);
+            }
+            scalerWrapper.style.transform = `scale(${currentScale})`;
+        }, { passive: false });
+
+        // 2. Generate Dial Ticks (60 marks)
+        for (let i = 0; i < 60; i++) {
+            const tick = document.createElement('div');
+            tick.classList.add('tick');
+            tick.style.transform = `rotate(${i * 6}deg)`;
+            
+            if (i % 5 === 0) {
+                tick.classList.add('hour-tick');
+                if (i === 0) {
+                    tick.classList.add('twelve-tick');
+                }
+            }
+            ticksContainer.appendChild(tick);
+        }
+
+        // 3. Generate Face Numbers (1 to 12)
+        const radius = 142; 
+        for (let i = 1; i <= 12; i++) {
+            const number = document.createElement('div');
+            number.classList.add('number');
+            number.innerText = i;
+            
+            const angle = (i * 30) * (Math.PI / 180);
+            const x = Math.sin(angle) * radius;
+            const y = -Math.cos(angle) * radius;
+            
+            number.style.left = `calc(50% + ${x}px)`;
+            number.style.top = `calc(50% + ${y}px)`;
+            
+            numbersContainer.appendChild(number);
+        }
+
+        // 4. Smooth Sweep Clock Engine
+        function updateClock() {
+            const now = new Date();
+            
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            const milliseconds = now.getMilliseconds();
+
+            // Calculate precise degrees incorporating sub-second time fractions
+            const secondsDeg = (seconds * 6) + (milliseconds * 0.006);
+            const minutesDeg = (minutes * 6) + (seconds * 0.1) + (milliseconds * 0.000166);
+            const hoursDeg = ((hours % 12) * 30) + (minutes * 0.5) + (seconds * 0.00833);
+
+            hourHand.style.transform = `rotate(${hoursDeg}deg)`;
+            minuteHand.style.transform = `rotate(${minutesDeg}deg)`;
+            secondHand.style.transform = `rotate(${secondsDeg}deg)`;
+
+            // Request next window frame paint loop for screen-synchronized refresh rates
+            requestAnimationFrame(updateClock);
+        }
+
+        // Start the continuous rendering engine loop
+        requestAnimationFrame(updateClock);
+    </script>
+</body>
+</html>
