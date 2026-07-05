@@ -1,361 +1,269 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text to EPUB Converter</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            max-width: 800px;
-            width: 100%;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            color: #555;
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        textarea {
-            width: 100%;
-            min-height: 400px;
-            padding: 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 15px;
-            font-family: 'Courier New', monospace;
-            resize: vertical;
-            transition: border-color 0.3s;
-            line-height: 1.6;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        button {
-            flex: 1;
-            padding: 14px 24px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .convert-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .convert-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .convert-btn:active {
-            transform: translateY(0);
-        }
-
-        .clear-btn {
-            background: #f5f5f5;
-            color: #666;
-        }
-
-        .clear-btn:hover {
-            background: #e0e0e0;
-        }
-
-        .status {
-            margin-top: 20px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .char-count {
-            text-align: right;
-            color: #999;
-            font-size: 12px;
-            margin-top: 5px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>极简富文本 EPUB 生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    /* 富文本编辑器占位符样式 */
+    [contenteditable]:empty:before {
+      content: attr(placeholder);
+      color: #9ca3af;
+      cursor: text;
+    }
+  </style>
 </head>
-<body>
-    <div class="container">
-        <h1>📚 Text to EPUB Converter</h1>
-        <p class="subtitle">Convert your text into an EPUB ebook file instantly</p>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
 
-        <div class="input-group">
-            <label for="bookTitle">Book Title</label>
-            <input type="text" id="bookTitle" placeholder="Enter your book title..." value="My Book">
-        </div>
-
-        <div class="input-group">
-            <label for="author">Author Name</label>
-            <input type="text" id="author" placeholder="Enter author name..." value="Anonymous">
-        </div>
-
-        <div class="input-group">
-            <label for="textInput">Your Text</label>
-            <textarea id="textInput" placeholder="Paste or type your text here..."></textarea>
-            <div class="char-count" id="charCount">0 characters</div>
-        </div>
-
-        <div class="button-group">
-            <button class="convert-btn" onclick="convertToEpub()">Convert to EPUB</button>
-            <button class="clear-btn" onclick="clearForm()">Clear</button>
-        </div>
-
-        <div class="status" id="status"></div>
+  <div class="max-w-2xl w-full bg-white shadow-xl rounded-2xl p-6 space-y-4">
+    <div class="border-b pb-4">
+      <h1 class="text-2xl font-bold text-gray-800">极简富文本 EPUB 生成器</h1>
+      <p class="text-sm text-gray-500">完美保留从 Mac 备忘录/Word 复制的加粗、斜体、下划线及换行格式。</p>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script>
-        const textInput = document.getElementById('textInput');
-        const charCount = document.getElementById('charCount');
+    <div class="space-y-4">
+      <!-- 书籍标题输入 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">书籍标题</label>
+        <input type="text" id="book-title" value="我的电子书" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
 
-        // Update character count
-        textInput.addEventListener('input', () => {
-            const count = textInput.value.length;
-            charCount.textContent = `${count.toLocaleString()} characters`;
-        });
+      <!-- 富文本编辑器容器 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">书籍内容</label>
+        <div class="border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden flex flex-col bg-white">
+          
+          <!-- 工具栏 -->
+          <div class="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-200 select-none">
+            <button type="button" onclick="formatDoc('bold')" class="p-1.5 rounded text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors" title="加粗">
+              <span class="font-bold text-sm">B</span>
+            </button>
+            <button type="button" onclick="formatDoc('italic')" class="p-1.5 rounded text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors" title="斜体">
+              <span class="italic text-sm">I</span>
+            </button>
+            <button type="button" onclick="formatDoc('underline')" class="p-1.5 rounded text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors" title="下划线">
+              <span class="underline text-sm">U</span>
+            </button>
+            <div class="h-4 w-[1px] bg-gray-300 mx-1"></div>
+            <button type="button" onclick="formatDoc('removeFormat')" class="p-1.5 rounded text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors text-xs font-semibold" title="清除格式">
+              Tx
+            </button>
+          </div>
 
-        function showStatus(message, isError = false) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = 'status ' + (isError ? 'error' : 'success');
-            status.style.display = 'block';
-            setTimeout(() => {
-                status.style.display = 'none';
-            }, 5000);
+          <!-- 富文本编辑区域 -->
+          <div id="book-content" contenteditable="true" class="p-4 outline-none min-h-[350px] max-h-[500px] overflow-y-auto text-sm leading-relaxed text-gray-800" placeholder="在此直接粘贴您的内容（支持保留原排版如：加粗、斜体、下划线及换行）..."></div>
+        </div>
+      </div>
+
+      <!-- 生成按钮 -->
+      <button onclick="generateEpub()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        生成并下载 EPUB
+      </button>
+    </div>
+
+    <!-- 状态提示 -->
+    <div id="status" class="text-center text-sm font-medium hidden"></div>
+  </div>
+
+  <script>
+    function formatDoc(cmd, value = null) {
+      document.execCommand(cmd, false, value);
+      document.getElementById('book-content').focus();
+    }
+
+    // 由于 EPUB 标准使用极为严苛的 XHTML 格式，必须将富文本完美的转换为兼容 XML 的节点代码
+    function cleanHTMLtoXHTML(html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      function serialize(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          // 严格转义 XML 字符
+          return node.nodeValue
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&apos;");
         }
+        
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tagName = node.tagName.toLowerCase();
+          
+          let targetTag = '';
+          let hasStyles = false;
+          let styleAttr = '';
 
-        function clearForm() {
-            textInput.value = '';
-            charCount.textContent = '0 characters';
-        }
-
-        async function convertToEpub() {
-            const text = document.getElementById('textInput').value.trim();
-            const title = document.getElementById('bookTitle').value.trim() || 'My Book';
-            const author = document.getElementById('author').value.trim() || 'Anonymous';
-
-            if (!text) {
-                showStatus('Please enter some text to convert!', true);
-                return;
+          // 规范化标签映射
+          if (['strong', 'b'].includes(tagName)) {
+            targetTag = 'strong';
+          } else if (['em', 'i'].includes(tagName)) {
+            targetTag = 'em';
+          } else if (tagName === 'u') {
+            targetTag = 'span';
+            styleAttr = 'text-decoration: underline;';
+            hasStyles = true;
+          } else if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'].includes(tagName)) {
+            targetTag = (tagName === 'div') ? 'p' : tagName; // 将 divs 统一转化为段落以获得更佳电子书兼容性
+          } else if (['ul', 'ol'].includes(tagName)) {
+            targetTag = tagName;
+          } else if (tagName === 'br') {
+            return '<br />'; // 严格闭合
+          } else if (tagName === 'span') {
+            // 保留可能存在的下划线或删除线样式
+            const style = node.getAttribute('style') || '';
+            if (style.includes('underline')) {
+              targetTag = 'span';
+              styleAttr = 'text-decoration: underline;';
+              hasStyles = true;
+            } else if (style.includes('line-through')) {
+              targetTag = 'span';
+              styleAttr = 'text-decoration: line-through;';
+              hasStyles = true;
+            } else {
+              // 普通无样式的 span 直接解析子节点
+              let childrenStr = '';
+              for (let child of node.childNodes) {
+                childrenStr += serialize(child);
+              }
+              return childrenStr;
             }
+          } else {
+            // 其余不支持的复杂格式剥离外皮，保留内容
+            let childrenStr = '';
+            for (let child of node.childNodes) {
+              childrenStr += serialize(child);
+            }
+            return childrenStr;
+          }
 
-            try {
-                const zip = new JSZip();
+          // 递归处理子节点
+          let childrenStr = '';
+          for (let child of node.childNodes) {
+            childrenStr += serialize(child);
+          }
 
-                // Add mimetype (must be first, uncompressed)
-                zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+          const attrStr = hasStyles ? ` style="${styleAttr}"` : '';
+          return `<${targetTag}${attrStr}>${childrenStr}</${targetTag}>`;
+        }
+        return '';
+      }
 
-                // META-INF/container.xml
-                const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+      let xhtml = '';
+      for (let node of doc.body.childNodes) {
+        xhtml += serialize(node);
+      }
+      return xhtml.trim();
+    }
+
+    async function generateEpub() {
+      const title = document.getElementById('book-title').value.trim() || '未命名书籍';
+      const editorElement = document.getElementById('book-content');
+      const status = document.getElementById('status');
+
+      // 获取富文本编辑器的 innerHTML
+      const rawHtmlContent = editorElement.innerHTML;
+      const textContent = editorElement.innerText.trim();
+
+      if (!textContent) {
+        // 使用页面级提示代替 alert
+        status.className = "text-center text-sm font-medium text-red-600 block";
+        status.innerText = "请先粘贴或编写一些内容。";
+        setTimeout(() => status.classList.add('hidden'), 3000);
+        return;
+      }
+
+      status.className = "text-center text-sm font-medium text-blue-600 block";
+      status.innerText = "正在整理富文本并打包，请稍候...";
+
+      try {
+        const zip = new JSZip();
+        const uuid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+
+        // 1. mimetype (必须在压缩包最前面，不能压缩)
+        zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+        // 2. container.xml
+        zip.file("META-INF/container.xml", `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-    <rootfiles>
-        <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-    </rootfiles>
-</container>`;
-                zip.folder('META-INF').file('container.xml', containerXml);
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml" />
+  </rootfiles>
+</container>`);
 
-                // OEBPS/content.opf
-                const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">
-    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-        <dc:title>${escapeXml(title)}</dc:title>
-        <dc:creator>${escapeXml(author)}</dc:creator>
-        <dc:language>en</dc:language>
-        <dc:identifier id="bookid">urn:uuid:${generateUUID()}</dc:identifier>
-        <meta property="dcterms:modified">${new Date().toISOString().split('.')[0]}Z</meta>
-    </metadata>
-    <manifest>
-        <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
-        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    </manifest>
-    <spine toc="ncx">
-        <itemref idref="content"/>
-    </spine>
-</package>`;
-                zip.folder('OEBPS').file('content.opf', contentOpf);
+        // 3. 样式表 (优雅的电子书阅读排版)
+        zip.file("OEBPS/style.css", `
+          body { 
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
+            padding: 5%; 
+            line-height: 1.6; 
+            color: #222;
+          }
+          h1 { text-align: center; margin-bottom: 1.8em; font-size: 1.8em; font-weight: bold; }
+          p { margin-top: 0; margin-bottom: 1em; text-align: justify; }
+          strong { font-weight: bold; }
+          em { font-style: italic; }
+          ul, ol { padding-left: 1.5em; margin-bottom: 1em; }
+          li { margin-bottom: 0.5em; }
+        `);
 
-                // OEBPS/toc.ncx
-                const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-    <head>
-        <meta name="dtb:uid" content="urn:uuid:${generateUUID()}"/>
-        <meta name="dtb:depth" content="1"/>
-        <meta name="dtb:totalPageCount" content="0"/>
-        <meta name="dtb:maxPageNumber" content="0"/>
-    </head>
-    <docTitle>
-        <text>${escapeXml(title)}</text>
-    </docTitle>
-    <navMap>
-        <navPoint id="content">
-            <navLabel>
-                <text>Content</text>
-            </navLabel>
-            <content src="content.xhtml"/>
-        </navPoint>
-    </navMap>
-</ncx>`;
-                zip.folder('OEBPS').file('toc.ncx', tocNcx);
+        // 4. 将富文本转换为严格规范的 XHTML 内容
+        const xhtmlContent = cleanHTMLtoXHTML(rawHtmlContent);
 
-                // OEBPS/content.xhtml
-                const contentXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+        zip.file("OEBPS/text.xhtml", `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh">
 <head>
-    <title>${escapeXml(title)}</title>
-    <style>
-        body {
-            font-family: serif;
-            line-height: 1.6;
-            margin: 2em;
-        }
-        p {
-            text-indent: 1.5em;
-            margin: 0.5em 0;
-        }
-        p:first-of-type {
-            text-indent: 0;
-        }
-    </style>
+  <title>${title}</title>
+  <link rel="stylesheet" href="style.css" type="text/css" />
 </head>
 <body>
-    <h1>${escapeXml(title)}</h1>
-    <p><em>by ${escapeXml(author)}</em></p>
-    ${formatTextAsHtml(text)}
+  <h1>${title}</h1>
+  <div class="content-block">
+    ${xhtmlContent}
+  </div>
 </body>
-</html>`;
-                zip.folder('OEBPS').file('content.xhtml', contentXhtml);
+</html>`);
 
-                // Generate EPUB
-                const blob = await zip.generateAsync({ type: 'blob' });
-                
-                // Download
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${sanitizeFilename(title)}.epub`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+        // 5. content.opf
+        zip.file("OEBPS/content.opf", `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="pub-id" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="pub-id">urn:uuid:${uuid}</dc:identifier>
+    <dc:title>${title}</dc:title>
+    <dc:language>zh</dc:language>
+    <meta property="dcterms:modified">${new Date().toISOString().split('.')[0]}Z</meta>
+  </metadata>
+  <manifest>
+    <item id="style" href="style.css" media-type="text/css" />
+    <item id="text" href="text.xhtml" media-type="application/xhtml+xml" />
+  </manifest>
+  <spine>
+    <itemref idref="text" />
+  </spine>
+</package>`);
 
-                showStatus('✓ EPUB file created successfully!');
-            } catch (error) {
-                console.error('Error creating EPUB:', error);
-                showStatus('Error creating EPUB file. Please try again.', true);
-            }
-        }
+        // 6. 生成并下载
+        const blob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title}.epub`;
+        a.click();
+        
+        status.className = "text-center text-sm font-medium text-green-600 block";
+        status.innerText = "生成成功！已触发下载。";
+        setTimeout(() => status.classList.add('hidden'), 3000);
 
-        function escapeXml(text) {
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&apos;');
-        }
-
-        function formatTextAsHtml(text) {
-            // Split by double line breaks for paragraphs
-            const paragraphs = text.split(/\n\s*\n/);
-            return paragraphs
-                .map(p => p.trim())
-                .filter(p => p.length > 0)
-                .map(p => `    <p>${escapeXml(p)}</p>`)
-                .join('\n');
-        }
-
-        function sanitizeFilename(filename) {
-            return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        }
-
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = Math.random() * 16 | 0;
-                const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-    </script>
+      } catch (err) {
+        status.className = "text-center text-sm font-medium text-red-600 block";
+        status.innerText = "出错了: " + err.message;
+      }
+    }
+  </script>
 </body>
 </html>
