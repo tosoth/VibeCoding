@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能富文本标注与笔记工作台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & Playfair -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        /* Custom scrollbar for premium feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Custom styling for cleaned document viewport to match premium book typography */
+        .clean-reader p {
+            margin-bottom: 1.5rem;
+            line-height: 1.85;
+            letter-spacing: 0.01em;
+            color: #1e293b;
+        }
+        .clean-reader b, .clean-reader strong {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .clean-reader i, .clean-reader em {
+            font-style: italic;
+            color: #334155;
+        }
+        /* Highlight hover effects */
+        .highlight-span {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .highlight-span:hover {
+            filter: brightness(0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .highlight-active {
+            outline: 2px solid #6366f1 !important;
+            outline-offset: 1px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+
+<!-- Top Navigation Header -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-sm">
+    <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md shadow-indigo-100">
+            <i data-lucide="highlight-tc" class="w-6 h-6">🖊️</i>
+        </div>
+        <div>
+            <h1 class="font-bold text-lg text-slate-800 tracking-tight">智能富文本标注与笔记工作台</h1>
+            <p class="text-xs text-slate-500">保留加粗与斜体 · 高亮并附加随堂笔记 · 无损导入导出</p>
+        </div>
+    </div>
+    
+    <!-- Global Actions -->
+    <div class="flex items-center space-x-3">
+        <!-- Hidden file inputs for import -->
+        <input type="file" id="importFile" accept=".json" class="hidden" onchange="triggerImport(event)">
+        
+        <button onclick="document.getElementById('importFile').click()" class="flex items-center space-x-1.5 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors shadow-sm">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>导入备份 (.json)</span>
+        </button>
+        
+        <button onclick="exportData()" class="flex items-center space-x-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-sm shadow-indigo-100">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>导出数据文件</span>
+        </button>
+    </div>
+</header>
+
+<main class="flex-1 flex overflow-hidden">
+    <!-- Left Workspace: Editor / Reader Area -->
+    <div class="flex-1 flex flex-col bg-slate-50 p-6 overflow-y-auto">
+        
+        <!-- Mode Switcher & Content Info Header -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex space-x-1 bg-slate-200 p-1 rounded-xl">
+                <button id="btnEditMode" onclick="setMode('edit')" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    <span>编辑与粘贴模式</span>
+                </button>
+                <button id="btnReadMode" onclick="setMode('read')" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5">
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                    <span>阅读与高亮模式</span>
+                </button>
+            </div>
+            
+            <div id="wordCountBadge" class="text-xs font-medium text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
+                当前字数: 0 字
+            </div>
+        </div>
+
+        <!-- Content Container -->
+        <div class="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm relative flex flex-col overflow-hidden min-h-[500px]">
+            
+            <!-- Paste & Edit Editor View (Active in Edit Mode) -->
+            <div id="rawEditorContainer" class="flex-1 flex flex-col">
+                <div class="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        直接在此粘贴或撰写您的富文本，系统将自动清洗格式并统排版
+                    </span>
+                    <button onclick="clearAllContent()" class="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 清空画布
+                    </button>
+                </div>
+                <!-- Clean Editor Textbox -->
+                <div id="richEditor" contenteditable="true" placeholder="在此处粘贴您的任意富文本..." class="flex-1 p-8 overflow-y-auto focus:outline-none text-slate-800 text-lg leading-relaxed clean-reader"></div>
+            </div>
+
+            <!-- Read & Annotate View (Active in Read Mode) -->
+            <div id="readerContainer" class="hidden flex-1 flex flex-col relative">
+                <div class="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center justify-between">
+                    <span class="text-xs font-medium text-indigo-600 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        阅读与高亮：框选任意文字，即可一键添加彩色高亮并记录专属笔记
+                    </span>
+                </div>
+                <!-- Interactive Viewer (Selection Area) -->
+                <div id="readerViewport" onmouseup="handleTextSelection(event)" class="flex-1 p-8 overflow-y-auto text-slate-800 text-lg leading-relaxed clean-reader select-text"></div>
+            </div>
+
+            <!-- Floating Highlighting Panel (Shows up on user selection in reader mode) -->
+            <div id="floatingToolbar" class="hidden absolute bg-white border border-slate-200 shadow-xl rounded-xl p-2 flex items-center space-x-2 transition-all duration-150 z-50">
+                <span class="text-xs text-slate-400 font-medium px-1">标记:</span>
+                <button onclick="applyHighlight('#fef08a', 'bg-yellow-100')" class="w-6 h-6 rounded-full bg-yellow-100 border border-yellow-300 hover:scale-110 active:scale-95 transition-transform" title="明黄"></button>
+                <button onclick="applyHighlight('#bbf7d0', 'bg-green-100')" class="w-6 h-6 rounded-full bg-green-100 border border-green-300 hover:scale-110 active:scale-95 transition-transform" title="薄荷绿"></button>
+                <button onclick="applyHighlight('#bfdbfe', 'bg-blue-100')" class="w-6 h-6 rounded-full bg-blue-100 border border-blue-300 hover:scale-110 active:scale-95 transition-transform" title="冰川蓝"></button>
+                <button onclick="applyHighlight('#fbcfe8', 'bg-pink-100')" class="w-6 h-6 rounded-full bg-pink-100 border border-pink-300 hover:scale-110 active:scale-95 transition-transform" title="樱花粉"></button>
+                <button onclick="applyHighlight('#ddd6fe', 'bg-purple-100')" class="w-6 h-6 rounded-full bg-purple-100 border border-purple-300 hover:scale-110 active:scale-95 transition-transform" title="薰衣草紫"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Sidebar: Interactive Notes & Highlight Manager -->
+    <div class="w-96 border-l border-slate-200 bg-white flex flex-col">
+        <!-- Sidebar Header -->
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="book-marked" class="text-indigo-600 w-5 h-5"></i>
+                <h2 class="font-bold text-slate-800">高亮与笔记总览</h2>
+            </div>
+            <span id="highlightsCount" class="bg-indigo-50 text-indigo-600 text-xs font-bold px-2 py-1 rounded-full">0 个记录</span>
+        </div>
+
+        <!-- Sidebar Body - Main Scrollable Section -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="notesListContainer">
+            <!-- Dynamic Highlight Cards will be loaded here -->
+            <div id="emptyNotesState" class="py-12 px-6 text-center text-slate-400">
+                <i data-lucide="layers" class="w-12 h-12 mx-auto stroke-1 mb-3"></i>
+                <p class="text-sm font-medium">暂无高亮或笔记记录</p>
+                <p class="text-xs mt-1">进入“阅读与高亮模式”，选中文字即可开始创作您的阅读笔记。</p>
+            </div>
+        </div>
+
+        <!-- Sidebar Footer Status -->
+        <div class="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 flex items-center justify-between">
+            <span>点击笔记卡片可在正文中追踪定位</span>
+            <button onclick="scrollToTop()" class="text-indigo-600 hover:text-indigo-700 font-medium">回到顶部 ↑</button>
+        </div>
+    </div>
+</main>
+
+<!-- Action Feedback Toast (Non-blocking replacement for alert) -->
+<div id="toastMessage" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-xl flex items-center space-x-2 opacity-0 pointer-events-none transition-all duration-300 z-50">
+    <span id="toastText">提示信息</span>
+</div>
+
+<!-- Modal: Edit Note Dialogue -->
+<div id="noteModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-200">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl scale-95 transform transition-all duration-200">
+        <h3 class="font-bold text-lg text-slate-800 mb-2 flex items-center space-x-2">
+            <i data-lucide="file-text" class="text-indigo-600 w-5 h-5"></i>
+            <span>撰写/修改笔记</span>
+        </h3>
+        
+        <!-- Selection Quote Quote -->
+        <div class="bg-slate-50 border-l-4 border-indigo-400 p-3 rounded-r-lg mb-4 text-sm text-slate-600 italic line-clamp-3">
+            “<span id="modalQuoteText">被选中的原文</span>”
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">笔记内容</label>
+            <textarea id="modalNoteInput" rows="4" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder-slate-400" placeholder="写下您的感悟、解析或补充说明..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2">
+            <button onclick="closeNoteModal()" class="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+            <button onclick="saveNoteModal()" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg transition-colors shadow-sm">保存笔记</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State variables
+    let currentMode = 'edit'; // 'edit' or 'read'
+    let textHtml = ''; // Raw document HTML content with b, i, p, br tags
+    let highlights = []; // [{ id, text, note, colorClass, colorHex }]
+    let activeSelection = null; // Temporary selection object
+    let editingHighlightId = null; // Track current highlight being updated inside modal
+
+    // Preset color map classes
+    const colorClasses = {
+        '#fef08a': 'bg-yellow-200',
+        '#bbf7d0': 'bg-green-200',
+        '#bfdbfe': 'bg-blue-200',
+        '#fbcfe8': 'bg-pink-200',
+        '#ddd6fe': 'bg-purple-200'
+    };
+
+    // DOM References
+    const richEditor = document.getElementById('richEditor');
+    const readerViewport = document.getElementById('readerViewport');
+    const floatingToolbar = document.getElementById('floatingToolbar');
+    const btnEditMode = document.getElementById('btnEditMode');
+    const btnReadMode = document.getElementById('btnReadMode');
+    const rawEditorContainer = document.getElementById('rawEditorContainer');
+    const readerContainer = document.getElementById('readerContainer');
+    const wordCountBadge = document.getElementById('wordCountBadge');
+    const notesListContainer = document.getElementById('notesListContainer');
+    const emptyNotesState = document.getElementById('emptyNotesState');
+    const highlightsCount = document.getElementById('highlightsCount');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastText = document.getElementById('toastText');
+
+    // On Load Setup
+    window.onload = function() {
+        lucide.createIcons();
+        setMode('edit');
+        
+        // Add paste event listener to sanitize incoming texts
+        richEditor.addEventListener('paste', handlePaste);
+        richEditor.addEventListener('input', updateWordCount);
+
+        // Pre-fill some instructions
+        richEditor.innerHTML = `
+            <p class="mb-4">👋 <b>欢迎使用智能富文本标注与笔记工作台！</b></p>
+            <p class="mb-4">你可以把这里当成个人的精细化数字阅读本。请直接在这框选删除本段指引，并粘贴 <i>您需要阅读与批注的任何网页文本、论文摘抄或长文章</i>。</p>
+            <p class="mb-4"><b>📌 特色核心亮点：</b></p>
+            <p class="mb-4">1. <b>极致排版清洗</b>：当你从其他地方（如网页、公众号或 Word）粘贴文字进来时，系统会自动将凌乱的字体和大小重置为统一的高可读性中英文字号与间距，且<b>完美保留加粗、斜体和分段换行结构</b>！</p>
+            <p class="mb-4">2. <b>标注与阅读模式</b>：点击上方切换至 <i>“阅读与高亮模式”</i>。选中任意字词即可触发彩虹笔进行高亮，并为您想做批注的文本随手写下深度笔记。</p>
+            <p class="mb-4">3. <b>一键导入导出</b>：所有的标注点、对应的段落结构、以及您辛苦写的随堂笔记都可以一键下载到本地成为一个 <b>.json 备份文件</b>。下次打开，轻松一键导入，无缝恢复阅读现场！</p>
+        `;
+        updateWordCount();
+    };
+
+    // Mode switcher
+    function setMode(mode) {
+        currentMode = mode;
+        if (mode === 'edit') {
+            // Transfer state from reader viewer if editing text (with stripped spans but preserved text markup)
+            if (readerViewport.innerHTML.trim() !== "") {
+                // To keep updates, strip highlight tags but preserve content structure
+                richEditor.innerHTML = stripHighlightSpans(readerViewport.innerHTML);
+            }
+            
+            rawEditorContainer.classList.remove('hidden');
+            readerContainer.classList.add('hidden');
+            
+            btnEditMode.className = "px-4 py-2 text-sm font-medium rounded-lg bg-white text-indigo-600 shadow-sm flex items-center space-x-1.5";
+            btnReadMode.className = "px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 flex items-center space-x-1.5";
+            
+            floatingToolbar.classList.add('hidden');
+            richEditor.focus();
+        } else {
+            // Reader Mode Active
+            textHtml = richEditor.innerHTML;
+            
+            // Re-render viewer keeping highlighting spans intact
+            readerViewport.innerHTML = textHtml;
+            
+            rawEditorContainer.classList.add('hidden');
+            readerContainer.classList.remove('hidden');
+            
+            btnReadMode.className = "px-4 py-2 text-sm font-medium rounded-lg bg-white text-indigo-600 shadow-sm flex items-center space-x-1.5";
+            btnEditMode.className = "px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 flex items-center space-x-1.5";
+            
+            // Wire dynamic click events to highlights currently rendered in viewer
+            attachHighlightListeners();
+        }
+        updateWordCount();
+    }
+
+    // Strip out all highlight tags while conserving internal texts
+    function stripHighlightSpans(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const highlights = temp.querySelectorAll('.highlight-span');
+        highlights.forEach(span => {
+            const textNode = document.createTextNode(span.textContent);
+            span.parentNode.replaceChild(textNode, span);
+        });
+        return temp.innerHTML;
+    }
+
+    // Handles pasting text by stripping formatting but retaining basic rich tags
+    function handlePaste(e) {
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const pastedHtml = clipboardData.getData('text/html');
+        const pastedText = clipboardData.getData('text/plain');
+
+        let cleanHtml = '';
+        if (pastedHtml) {
+            cleanHtml = cleanRichText(pastedHtml);
+        } else {
+            // Fallback for raw text - wrap blocks in paragraphs
+            cleanHtml = pastedText
+                .split(/\n+/)
+                .map(p => p.trim() ? `<p class="mb-4">${p}</p>` : '')
+                .join('');
+        }
+
+        // Insert at caret or replace selection
+        document.execCommand('insertHTML', false, cleanHtml);
+        updateWordCount();
+        showToast('📋 已自动清洗格式，为您呈现统一度量衡的优美排版');
+    }
+
+    // Recursive parser to detect styling classes, inline CSS weights, and block structural breaks
+    function cleanRichText(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        let paragraphs = [];
+        let currentParagraph = document.createElement('p');
+        currentParagraph.className = 'mb-4';
+
+        // Helper to push valid accumulated inline elements as a clean paragraph
+        function flushCurrent() {
+            if (currentParagraph.childNodes.length > 0) {
+                // Keep paragraph if it has any text content or visual linebreaks
+                if (currentParagraph.textContent.trim().length > 0 || currentParagraph.querySelector('br')) {
+                    paragraphs.push(currentParagraph);
+                }
+                currentParagraph = document.createElement('p');
+                currentParagraph.className = 'mb-4';
+            }
+        }
+
+        // Traverses node tree, normalizes bold/italic status from CSS inline rules
+        function traverse(node, currentStyles = { bold: false, italic: false }) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                let text = node.textContent;
+                if (text) {
+                    let textNode = document.createTextNode(text);
+                    let target = textNode;
+
+                    // Apply normalized formatting wrap
+                    if (currentStyles.italic) {
+                        const iTag = document.createElement('i');
+                        iTag.appendChild(target);
+                        target = iTag;
+                    }
+                    if (currentStyles.bold) {
+                        const bTag = document.createElement('b');
+                        bTag.appendChild(target);
+                        target = bTag;
+                    }
+
+                    currentParagraph.appendChild(target);
+                }
+                return;
+            }
+
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                const style = node.getAttribute('style') || '';
+
+                // Detect semantic tagging OR modern CSS properties (Word / Web standards)
+                const isBold = /font-weight\s*:\s*(bold|700|800|900)/i.test(style) || 
+                               ['b', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName);
+                const isItalic = /font-style\s*:\s*italic/i.test(style) || 
+                                 ['i', 'em'].includes(tagName);
+
+                const nextStyles = {
+                    bold: currentStyles.bold || isBold,
+                    italic: currentStyles.italic || isItalic
+                };
+
+                // Elements that force vertical text separation
+                const isBlock = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'tr', 'article', 'section'].includes(tagName);
+
+                if (isBlock) {
+                    flushCurrent(); // Start a fresh paragraph frame
+                }
+
+                if (tagName === 'br') {
+                    currentParagraph.appendChild(document.createElement('br'));
+                    return;
+                }
+
+                // Deep scan matching children properties
+                for (let child of Array.from(node.childNodes)) {
+                    traverse(child, nextStyles);
+                }
+
+                if (isBlock) {
+                    flushCurrent(); // Safely end the block segment
+                }
+            }
+        }
+
+        // Run recursive traversal over HTML structure
+        for (let child of Array.from(doc.body.childNodes)) {
+            traverse(child);
+        }
+        flushCurrent(); // Flush final active paragraph
+
+        // Assemble paragraphs HTML back together
+        const container = document.createElement('div');
+        paragraphs.forEach(p => container.appendChild(p));
+        return container.innerHTML;
+    }
+
+    function clearAllContent() {
+        if (confirm('确认清空当前的所有文本和记录吗？此操作无法撤销。')) {
+            richEditor.innerHTML = '';
+            readerViewport.innerHTML = '';
+            highlights = [];
+            updateHighlightsSidebar();
+            updateWordCount();
+            showToast('🧹 画布已清空');
+        }
+    }
+
+    function updateWordCount() {
+        const el = currentMode === 'edit' ? richEditor : readerViewport;
+        const text = el.innerText || '';
+        const count = text.trim().length;
+        wordCountBadge.innerText = `当前字数: ${count} 字`;
+    }
+
+    // Show elegant UI messages
+    function showToast(text) {
+        toastText.innerText = text;
+        toastMessage.classList.remove('opacity-0', 'pointer-events-none');
+        toastMessage.classList.add('opacity-100');
+        setTimeout(() => {
+            toastMessage.classList.add('opacity-0', 'pointer-events-none');
+            toastMessage.classList.remove('opacity-100');
+        }, 3000);
+    }
+
+    function scrollToTop() {
+        const viewport = currentMode === 'edit' ? richEditor : readerViewport;
+        viewport.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Watch selections and position floating highlighter
+    function handleTextSelection(event) {
+        if (currentMode !== 'read') return;
+        
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+        
+        if (!selectedText) {
+            floatingToolbar.classList.add('hidden');
+            activeSelection = null;
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        
+        // Safety lock: ensure selection starts/ends inside reader viewport container
+        if (!readerViewport.contains(range.commonAncestorContainer)) {
+            floatingToolbar.classList.add('hidden');
+            activeSelection = null;
+            return;
+        }
+
+        // Capture state of the active select
+        activeSelection = {
+            text: selectedText,
+            range: range.cloneRange()
+        };
+
+        // Align toolbar near mouse release coordinates or selection rect
+        const rect = range.getBoundingClientRect();
+        const viewPortRect = readerViewport.getBoundingClientRect();
+        
+        // Calculate offset position within the editor element
+        const offsetTop = rect.top - viewPortRect.top + readerViewport.scrollTop - 48; // Floating right above text
+        const offsetLeft = rect.left - viewPortRect.left + (rect.width / 2) - (floatingToolbar.clientWidth / 2);
+
+        floatingToolbar.style.top = `${Math.max(10, offsetTop)}px`;
+        floatingToolbar.style.left = `${Math.max(10, Math.min(offsetLeft, readerViewport.clientWidth - 220))}px`;
+        floatingToolbar.classList.remove('hidden');
+    }
+
+    function applyHighlight(colorHex, colorClass) {
+        if (!activeSelection) return;
+
+        const id = 'hl-' + Date.now();
+        const span = document.createElement('span');
+        
+        // Build style rules for highlights inside text
+        span.className = `highlight-span rounded cursor-pointer transition-all border-b-2 border-transparent hover:border-slate-500 py-0.5 ${colorClasses[colorHex] || 'bg-yellow-200'}`;
+        span.dataset.id = id;
+        span.style.backgroundColor = colorHex;
+        span.innerText = activeSelection.text;
+
+        try {
+            const range = activeSelection.range;
+            range.deleteContents();
+            range.insertNode(span);
+            
+            // Sync content from reader to editor immediately
+            richEditor.innerHTML = readerViewport.innerHTML;
+            
+            // Add to database state
+            highlights.push({
+                id: id,
+                text: activeSelection.text,
+                note: '', // Initially blank note
+                colorClass: colorClasses[colorHex],
+                colorHex: colorHex
+            });
+
+            // Refresh sidebar UI list
+            updateHighlightsSidebar();
+            
+            // Open note modal immediately so they can note it down!
+            openNoteEditor(id);
+            
+            // Reset selection toolbar
+            window.getSelection().removeAllRanges();
+            floatingToolbar.classList.add('hidden');
+            activeSelection = null;
+            
+            // Rewire listeners
+            attachHighlightListeners();
+            showToast('✨ 已成功高亮段落，快写下您的专属笔记吧！');
+        } catch (e) {
+            showToast('⚠️ 抱歉，该跨段落高亮选择暂不支持，请分段进行高亮');
+            console.error(e);
+        }
+    }
+
+    function attachHighlightListeners() {
+        const spans = readerViewport.querySelectorAll('.highlight-span');
+        spans.forEach(span => {
+            // Click to trigger scrolling + sidebar edit
+            span.onclick = function(e) {
+                e.stopPropagation();
+                const id = this.getAttribute('data-id');
+                highlightCardInSidebar(id);
+            };
+        });
+    }
+
+    // Highlights target card in sidebar and scrolls reader to it
+    function highlightCardInSidebar(id) {
+        // Deactivate old active highlight indicators
+        document.querySelectorAll('.highlight-span').forEach(s => s.classList.remove('highlight-active'));
+        document.querySelectorAll('.note-card').forEach(c => c.classList.remove('ring-2', 'ring-indigo-500'));
+
+        const span = readerViewport.querySelector(`.highlight-span[data-id="${id}"]`);
+        if (span) {
+            span.classList.add('highlight-active');
+        }
+
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+            card.classList.add('ring-2', 'ring-indigo-500');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function openNoteEditor(id) {
+        const hItem = highlights.find(h => h.id === id);
+        if (!hItem) return;
+
+        editingHighlightId = id;
+        document.getElementById('modalQuoteText').innerText = hItem.text;
+        document.getElementById('modalNoteInput').value = hItem.note || '';
+        
+        const modal = document.getElementById('noteModal');
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.querySelector('div').classList.remove('scale-95');
+        modal.querySelector('div').classList.add('scale-100');
+        document.getElementById('modalNoteInput').focus();
+    }
+
+    function closeNoteModal() {
+        const modal = document.getElementById('noteModal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.querySelector('div').classList.add('scale-95');
+        modal.querySelector('div').classList.remove('scale-100');
+        editingHighlightId = null;
+    }
+
+    function saveNoteModal() {
+        if (!editingHighlightId) return;
+
+        const noteVal = document.getElementById('modalNoteInput').value.trim();
+        const index = highlights.findIndex(h => h.id === editingHighlightId);
+        
+        if (index !== -1) {
+            highlights[index].note = noteVal;
+            
+            // Sync dynamic note value into HTML span node title tag for interactive hovering tooltip
+            const span = readerViewport.querySelector(`.highlight-span[data-id="${editingHighlightId}"]`);
+            if (span) {
+                if (noteVal) {
+                    span.setAttribute('title', `💡 笔记: ${noteVal}`);
+                } else {
+                    span.removeAttribute('title');
+                }
+            }
+            
+            // Make sure the rich editor text tracks the same
+            richEditor.innerHTML = readerViewport.innerHTML;
+            
+            updateHighlightsSidebar();
+            closeNoteModal();
+            showToast('✅ 笔记已保存成功');
+        }
+    }
+
+    function updateHighlightsSidebar() {
+        highlightsCount.innerText = `${highlights.length} 个记录`;
+        
+        if (highlights.length === 0) {
+            emptyNotesState.classList.remove('hidden');
+            // Clear remaining notes elements
+            const cards = notesListContainer.querySelectorAll('.note-card');
+            cards.forEach(c => c.remove());
+            return;
+        }
+
+        emptyNotesState.classList.add('hidden');
+        
+        // Strip current cards
+        const existingCards = notesListContainer.querySelectorAll('.note-card');
+        existingCards.forEach(c => c.remove());
+
+        // Build elegant list cards
+        highlights.forEach(h => {
+            const card = document.createElement('div');
+            card.id = `card-${h.id}`;
+            card.className = `note-card bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 hover:shadow-md transition-all duration-150 cursor-pointer relative group`;
+            
+            // Set left accent bar color
+            card.style.borderLeftWidth = '4px';
+            card.style.borderLeftColor = h.colorHex;
+
+            card.onclick = () => {
+                highlightCardInSidebar(h.id);
+                // Highlight text highlight inside article
+                const span = readerViewport.querySelector(`.highlight-span[data-id="${h.id}"]`);
+                if (span) {
+                    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            };
+
+            card.innerHTML = `
+                <!-- Quote Text -->
+                <div class="text-sm font-medium text-slate-800 line-clamp-2">
+                    “${h.text}”
+                </div>
+                
+                <!-- Attached Note -->
+                <div class="text-xs bg-white border border-slate-100 p-2 rounded-lg ${h.note ? 'text-slate-600 font-medium' : 'text-slate-400 italic'} flex items-start gap-1.5">
+                    <i data-lucide="sticky-note" class="w-3.5 h-3.5 mt-0.5 text-indigo-500 flex-shrink-0"></i>
+                    <span class="flex-1">${h.note || '写下笔记...'}</span>
+                </div>
+
+                <!-- Footer Operations -->
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-[10px] text-slate-400 font-medium">标注时间段</span>
+                    <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="event.stopPropagation(); openNoteEditor('${h.id}')" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold px-2 py-1 bg-white border border-indigo-100 rounded-md shadow-sm">
+                            写笔记
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteHighlight('${h.id}')" class="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 bg-white border border-rose-100 rounded-md shadow-sm">
+                            删除
+                        </button>
+                    </div>
+                </div>
+            `;
+            notesListContainer.appendChild(card);
+        });
+
+        lucide.createIcons();
+    }
+
+    function deleteHighlight(id) {
+        if (confirm('确定要删除此高亮和随附笔记吗？此操作将移除该段文字的高亮样式。')) {
+            // Find and restore textual node in DOM
+            const span = readerViewport.querySelector(`.highlight-span[data-id="${id}"]`);
+            if (span) {
+                const textNode = document.createTextNode(span.textContent);
+                span.parentNode.replaceChild(textNode, span);
+            }
+
+            // Clean data state
+            highlights = highlights.filter(h => h.id !== id);
+            
+            // Keep rich text box synced
+            richEditor.innerHTML = readerViewport.innerHTML;
+
+            updateHighlightsSidebar();
+            attachHighlightListeners();
+            showToast('🗑️ 已移除该高亮及对应笔记');
+        }
+    }
+
+    // Package and download state database to JSON
+    function exportData() {
+        if (!richEditor.innerHTML.trim()) {
+            showToast('⚠️ 当前画布没有内容可以导出');
+            return;
+        }
+
+        const dataState = {
+            version: "1.0",
+            savedAt: new Date().toISOString(),
+            htmlContent: currentMode === 'edit' ? richEditor.innerHTML : readerViewport.innerHTML,
+            highlights: highlights
+        };
+
+        const jsonString = JSON.stringify(dataState, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // Fallback for document copying or creating direct link
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        
+        // Generate nice custom title name
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `智能标注笔记_备份_${dateStr}.json`;
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        showToast('💾 笔记备份数据已顺利打包并下载至本地！');
+    }
+
+    // Process incoming JSON database and re-inject visual spans with dynamic events
+    function triggerImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (!data.htmlContent) {
+                    throw new Error("无效的数据格式：找不到 htmlContent");
+                }
+
+                // Load Text into system
+                richEditor.innerHTML = data.htmlContent;
+                readerViewport.innerHTML = data.htmlContent;
+                
+                // Load highlights array
+                highlights = data.highlights || [];
+
+                // Adjust Mode to show Annotations view beautifully
+                setMode('read');
+                
+                // Refresh list
+                updateHighlightsSidebar();
+                attachHighlightListeners();
+                
+                showToast('📂 成功恢复您的阅读现场与高亮笔记！');
+            } catch (error) {
+                showToast('❌ 导入失败：不支持该格式或文件已损坏。');
+                console.error(error);
+            }
+            // Clear value to allow re-importing same file
+            document.getElementById('importFile').value = '';
+        };
+        reader.readAsText(file);
+    }
+</script>
+</body>
+</html>
