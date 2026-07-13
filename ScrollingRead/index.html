@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Teleprompter (Local Sync)</title>
+    <title>Professional Teleprompter (Enhanced Paste & Local Sync)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html { 
@@ -36,11 +36,30 @@
             padding-top: 100px; 
         }
 
-        /* 双重保险：强制内容区域内所有粘贴进来的标签元素继承全局前景色，并隐藏自带底色 */
+        /* 强制内容区域内的子元素继承前景色与背景色，排除 size 干扰，但保留基本排版 */
         #content-area * {
             color: inherit !important;
+            font-size: inherit !important;
             background: transparent !important;
             background-color: transparent !important;
+        }
+
+        #content-area ul {
+            list-style-type: disc;
+            padding-left: 40px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        #content-area ol {
+            list-style-type: decimal;
+            padding-left: 40px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        #content-area li {
+            display: list-item;
         }
 
         .toolbar { 
@@ -219,7 +238,6 @@ Settings and scroll position are now saved locally in your browser.
         function showPasteToast() {
             clearTimeout(toastDismissTimer);
             pasteToast.classList.add('visible');
-            // Auto-dismiss after 6 seconds if no action taken
             toastDismissTimer = setTimeout(hidePasteToast, 6000);
         }
 
@@ -239,7 +257,7 @@ Settings and scroll position are now saved locally in your browser.
         // --- LOCAL STORAGE OPERATIONS ---
         function saveData() {
             const settings = {
-                text: content.innerText,
+                textHtml: content.innerHTML, // 使用 innerHTML 保证格式（加粗等）能够被保存
                 fontFamily: fontFamilySelect.value,
                 fontSize: fontSizeInput.value,
                 fontColor: fontColorInput.value,
@@ -254,7 +272,13 @@ Settings and scroll position are now saved locally in your browser.
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const data = JSON.parse(saved);
-                content.innerText = data.text || content.innerText;
+                // 兼容老版本无 textHtml 的情况
+                if (data.textHtml !== undefined) {
+                    content.innerHTML = data.textHtml;
+                } else if (data.text !== undefined) {
+                    content.innerText = data.text;
+                }
+                
                 fontFamilySelect.value = data.fontFamily || "sans-serif";
                 fontSizeInput.value = data.fontSize || "48";
                 fontColorInput.value = data.fontColor || "#000000";
@@ -325,6 +349,141 @@ Settings and scroll position are now saved locally in your browser.
             }
         }
 
+        // --- PASTE & FORMAT CONVERSION LOGIC ---
+
+        // 简易 Markdown 转 HTML 模块 (只提取粗体、斜体、下划线及列表，忽略标题等大小字号)
+        function convertMarkdownToHtml(mdText) {
+            let html = mdText
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // 1. 粗斜体 ***text*** 或 ___text___
+            html = html.replace(/(\*\*\*|___)(.*?)\1/g, '<strong><em>$2</em></strong>');
+            
+            // 2. 粗体 **text** 或 __text__
+            html = html.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
+            
+            // 3. 斜体 *text* 或 _text_
+            html = html.replace(/(\*|_)(.*?)\1/g, '<em>$2</em>');
+
+            // 4. 下划线 (非标 Md 语法，但常用如 <u>text</u> 或 ++text++)
+            html = html.replace(/\+\+(.*?)\+\+/g, '<u>$1</u>');
+
+            // 5. 处理段落与换行及列表
+            const lines = html.split(/\r?\n/);
+            let inList = false;
+            let listType = null; // 'ul' or 'ol'
+            let resultLines = [];
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                
+                // 无序列表判断
+                const ulMatch = line.match(/^(\s*)([-*+])\s+(.*)/);
+                // 有序列表判断
+                const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)/);
+
+                if (ulMatch) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) resultLines.push(`</${listType}>`);
+                        resultLines.push('<ul>');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    resultLines.push(`<li>${ulMatch[3]}</li>`);
+                } else if (olMatch) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) resultLines.push(`</${listType}>`);
+                        resultLines.push('<ol>');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    resultLines.push(`<li>${olMatch[3]}</li>`);
+                } else {
+                    if (inList) {
+                        resultLines.push(`</${listType}>`);
+                        inList = false;
+                        listType = null;
+                    }
+                    
+                    // 忽略 Markdown 标题大小，直接将其视作粗体普通文本
+                    if (trimmed.startsWith('#')) {
+                        const headingText = trimmed.replace(/^#+\s*/, '');
+                        resultLines.push(`<div><strong>${headingText}</strong></div>`);
+                    } else if (trimmed === '') {
+                        resultLines.push('<div><br></div>');
+                    } else {
+                        resultLines.push(`<div>${line}</div>`);
+                    }
+                }
+            });
+
+            if (inList) {
+                resultLines.push(`</${listType}>`);
+            }
+
+            return resultLines.join('');
+        }
+
+        // HTML 富文本清洗，滤掉所有大小相关的属性
+        function cleanRichHtml(htmlContent) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            
+            // 递归过滤节点
+            function sanitizeNode(node) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    // 1. 移除 style 属性中关于 font-size 的设定，或直接移除全部 style (保留基础表现由提词器统一控制)
+                    if (node.hasAttribute('style')) {
+                        let style = node.getAttribute('style');
+                        // 移除 font-size, line-height 属性，防止干扰
+                        style = style.replace(/font-size\s*:\s*[^;]+;?/gi, '');
+                        style = style.replace(/line-height\s*:\s*[^;]+;?/gi, '');
+                        if (style.trim() === '') {
+                            node.removeAttribute('style');
+                        } else {
+                            node.setAttribute('style', style);
+                        }
+                    }
+                    
+                    // 2. 移除 font 标签的 size 属性
+                    if (node.tagName.toLowerCase() === 'font') {
+                        node.removeAttribute('size');
+                        node.removeAttribute('face');
+                    }
+
+                    // 3. 将 H1-H6 标题降级为普通的粗体（以免带有系统自带的巨大字号）
+                    if (/^H[1-6]$/.test(node.tagName)) {
+                        const span = doc.createElement('strong');
+                        span.innerHTML = node.innerHTML;
+                        node.parentNode.replaceChild(span, node);
+                        sanitizeNode(span);
+                        return;
+                    }
+
+                    // 4. 如果遇到不允许保留的干扰标签，可降级为普通 text 或 div (如特定排版容器)
+                    // 此处对子节点进行递归清洗
+                    const children = Array.from(node.childNodes);
+                    children.forEach(child => sanitizeNode(child));
+                }
+            }
+
+            Array.from(doc.body.childNodes).forEach(node => sanitizeNode(node));
+            return doc.body.innerHTML;
+        }
+
+        // 识别文本是否很有可能是 Markdown
+        function isMarkdown(text) {
+            // 如果含有常见 Md 语法（如：# 标题，**粗体**，*斜体*，- 列表项），判定为 md
+            const hasHeaders = /^#+\s+.+/m.test(text);
+            const hasBold = /(\*\*|__).+\1/.test(text);
+            const hasItalic = /(\*|_).+\1/.test(text);
+            const hasList = /^(\s*)[-*+]\s+.+/m.test(text) || /^(\s*)\d+\.\s+.+/m.test(text);
+            
+            return hasHeaders || hasBold || hasItalic || hasList;
+        }
+
         // --- EVENT LISTENERS ---
         window.addEventListener('mousemove', (e) => { lastMouseY = e.clientY; });
 
@@ -353,13 +512,37 @@ Settings and scroll position are now saved locally in your browser.
             }
         });
 
-        // 拦截粘贴事件：强制作为纯文本插入，移除所有富文本前景色/背景色干扰
+        // 拦截粘贴事件：保留基础排版，剔除字号和底色
         content.addEventListener('paste', (e) => {
             e.preventDefault();
-            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
-            document.execCommand('insertText', false, text);
+            
+            const clipboardData = e.clipboardData || window.clipboardData;
+            const htmlData = clipboardData.getData('text/html');
+            const plainText = clipboardData.getData('text/plain');
 
-            // 保持原有的 Toast 逻辑和保存逻辑
+            let processedHtml = "";
+
+            if (htmlData && htmlData.trim() !== "") {
+                // 情况一：粘贴的是富文本，清洗 HTML
+                processedHtml = cleanRichHtml(htmlData);
+            } else if (plainText && isMarkdown(plainText)) {
+                // 情况二：无富文本，但纯文本属于 Markdown 格式，进行自动转换
+                processedHtml = convertMarkdownToHtml(plainText);
+            } else {
+                // 情况三：普通纯文本，按换行切分，安全插入
+                processedHtml = plainText
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .split(/\r?\n/)
+                    .map(line => line === "" ? "<div><br></div>" : `<div>${line}</div>`)
+                    .join("");
+            }
+
+            // 执行插入
+            document.execCommand('insertHTML', false, processedHtml);
+
+            // 保持原有的 Toast 提示和保存逻辑
             setTimeout(() => {
                 if (container.scrollTop > 100) {
                     showPasteToast();
