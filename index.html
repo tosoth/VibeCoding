@@ -1,346 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ebbinghaus Memo Mastery</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .card-perspective { perspective: 1000px; }
-        .card-inner {
-            transition: transform 0.6s;
-            transform-style: preserve-3d;
-            cursor: pointer;
-        }
-        .card-inner.is-flipped { transform: rotateY(180deg); }
-        .card-face {
-            backface-visibility: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            text-align: center;
-            word-break: break-word;
-        }
-        .card-back { transform: rotateY(180deg); }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade { animation: fadeIn 0.3s ease-out forwards; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeCoding Web Apps</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-hover: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #34d399;
+      --accent-purple: #c084fc;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      max-width: 600px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    main {
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card:hover {
+      background-color: var(--card-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      border-color: var(--accent-blue);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .badge-live {
+      background-color: rgba(52, 211, 153, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .badge-repo {
+      background-color: rgba(192, 132, 252, 0.15);
+      color: var(--accent-purple);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+    }
+
+    .card-link {
+      font-size: 0.875rem;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 500;
+    }
+
+    .card-link svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover .card-link svg {
+      transform: translateX(3px);
+    }
+
+    footer {
+      margin-top: auto;
+      padding-top: 3rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
+<body>
 
-    <div id="app" class="max-w-2xl mx-auto px-4 py-8">
-        <!-- Header -->
-        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-indigo-700">MemoMaster</h1>
-                <p class="text-slate-500 text-sm">Ebbinghaus Forgetting Curve Logic</p>
-            </div>
-            <div class="flex bg-white rounded-lg p-1 shadow-sm border border-slate-200">
-                <button onclick="switchMode('view')" id="btn-view" class="px-4 py-2 rounded-md transition-all">Review</button>
-                <button onclick="switchMode('edit')" id="btn-edit" class="px-4 py-2 rounded-md transition-all">Manage</button>
-            </div>
-        </header>
+  <header>
+    <h1>VibeCoding Web Apps</h1>
+    <p>A collection of web tools and utilities created by tosoth.</p>
+  </header>
 
-        <!-- View Mode -->
-        <div id="view-mode" class="hidden animate-fade">
-            <div id="review-container">
-                <div class="flex justify-between items-center mb-6">
-                    <span id="progress-text" class="text-sm font-medium text-slate-600 bg-slate-200 px-3 py-1 rounded-full">0/0 Cards</span>
-                    <span id="status-label" class="text-xs uppercase tracking-wider font-bold text-indigo-500">Studying</span>
-                </div>
+  <main>
+    <div class="grid">
 
-                <div class="card-perspective h-80 w-full mb-8">
-                    <div id="main-card" class="card-inner relative w-full h-full bg-white rounded-2xl shadow-xl border border-slate-100" onclick="flipCard()">
-                        <div class="card-face card-front absolute inset-0 text-2xl font-semibold overflow-y-auto" id="card-front-display">
-                            Front Content
-                        </div>
-                        <div class="card-face card-back absolute inset-0 text-xl text-slate-600 bg-indigo-50 overflow-y-auto" id="card-back-display">
-                            Back Content
-                        </div>
-                    </div>
-                </div>
-
-                <div id="controls" class="flex gap-4 opacity-0 pointer-events-none transition-opacity duration-300">
-                    <button onclick="submitResult(false)" class="flex-1 py-4 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-xl transition-colors flex flex-col items-center">
-                        <span>Wrong</span>
-                        <span class="text-[10px] font-normal opacity-70">See again soon</span>
-                    </button>
-                    <button onclick="submitResult(true)" class="flex-1 py-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold rounded-xl transition-colors flex flex-col items-center">
-                        <span>Correct</span>
-                        <span class="text-[10px] font-normal opacity-70">Mark Mastered</span>
-                    </button>
-                </div>
-                
-                <p class="text-center text-slate-400 text-sm mt-6 italic">Tip: Click the card to reveal the answer</p>
-            </div>
-
-            <div id="empty-state" class="hidden py-20 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200">
-                <div class="text-5xl mb-4">🎉</div>
-                <h2 class="text-xl font-bold text-slate-700">All Done!</h2>
-                <p class="text-slate-500 mt-2">No more cards to review for today.</p>
-                <button onclick="switchMode('edit')" class="mt-6 text-indigo-600 font-semibold hover:underline">Add more cards</button>
-            </div>
+      <!-- EPUB Creator -->
+      <a href="https://tosoth.github.io/VibeCoding/epub-creator" class="card" target="_blank" rel="noopener">
+        <div class="card-header">
+          <h2 class="card-title">Text to EPUB Converter</h2>
+          <span class="badge badge-live">Live App</span>
         </div>
-
-        <!-- Edit Mode -->
-        <div id="edit-mode" class="hidden animate-fade">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-                <h2 class="text-lg font-bold mb-4" id="form-title">Create New Flashcard</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Front Side (Question)</label>
-                        <textarea id="input-front" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" rows="2" placeholder="What is the capital of France?"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Back Side (Answer)</label>
-                        <textarea id="input-back" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" rows="2" placeholder="Paris"></textarea>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="saveCard()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95" id="btn-save">Add Card</button>
-                        <button id="btn-cancel" onclick="resetForm()" class="hidden px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all">Cancel</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <h3 class="font-bold text-slate-700 flex justify-between items-center">
-                    Your Cards
-                    <span id="total-count" class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-1 rounded">0 Total</span>
-                </h3>
-                <div id="card-list" class="space-y-3">
-                    <!-- Cards injected here -->
-                </div>
-            </div>
+        <div class="card-link">
+          Open App
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </div>
+      </a>
+
+      <!-- Flash Card -->
+      <a href="https://tosoth.github.io/VibeCoding/flashcard/" class="card" target="_blank" rel="noopener">
+        <div class="card-header">
+          <h2 class="card-title">Flash Card</h2>
+          <span class="badge badge-live">Live App</span>
+        </div>
+        <div class="card-link">
+          Open App
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+      <!-- Highlight Note -->
+      <a href="https://tosoth.github.io/VibeCoding/highlightnote/" class="card" target="_blank" rel="noopener">
+        <div class="card-header">
+          <h2 class="card-title">Highlight Note</h2>
+          <span class="badge badge-live">Live App</span>
+        </div>
+        <div class="card-link">
+          Open App
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+      <!-- Scrolling Read -->
+      <a href="https://tosoth.github.io/VibeCoding/ScrollingRead/" class="card" target="_blank" rel="noopener">
+        <div class="card-header">
+          <h2 class="card-title">Scrolling Read</h2>
+          <span class="badge badge-live">Live App</span>
+        </div>
+        <div class="card-link">
+          Open App
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+      <!-- Traditional to Simplified Chinese Converter -->
+      <a href="https://github.com/tosoth/VibeCoding/tree/main/TradChineseToSimpChinese" class="card" target="_blank" rel="noopener">
+        <div class="card-header">
+          <h2 class="card-title">Traditional to Simplified Chinese Converter</h2>
+          <span class="badge badge-repo">GitHub Repo</span>
+        </div>
+        <div class="card-link">
+          View Repository
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
     </div>
+  </main>
 
-    <script>
-        // --- State Management ---
-        let cards = JSON.parse(localStorage.getItem('ebbinghaus_cards') || '[]');
-        let currentMode = 'view';
-        let currentSession = []; // Cards for current review round
-        let currentCardIndex = 0;
-        let editingId = null;
+  <footer>
+    &copy; VibeCoding Projects
+  </footer>
 
-        // Ebbinghaus milestones in days
-        const INTERVALS = [0, 1, 2, 4, 7, 11];
-
-        // --- Logic ---
-
-        function init() {
-            renderMode();
-        }
-
-        function switchMode(mode) {
-            currentMode = mode;
-            renderMode();
-        }
-
-        function renderMode() {
-            const viewEl = document.getElementById('view-mode');
-            const editEl = document.getElementById('edit-mode');
-            const btnView = document.getElementById('btn-view');
-            const btnEdit = document.getElementById('btn-edit');
-
-            if (currentMode === 'view') {
-                viewEl.classList.remove('hidden');
-                editEl.classList.add('hidden');
-                btnView.className = "px-4 py-2 rounded-md transition-all bg-indigo-600 text-white shadow-sm";
-                btnEdit.className = "px-4 py-2 rounded-md transition-all text-slate-500 hover:text-indigo-600";
-                startReviewSession();
-            } else {
-                viewEl.classList.add('hidden');
-                editEl.classList.remove('hidden');
-                btnEdit.className = "px-4 py-2 rounded-md transition-all bg-indigo-600 text-white shadow-sm";
-                btnView.className = "px-4 py-2 rounded-md transition-all text-slate-500 hover:text-indigo-600";
-                renderCardList();
-            }
-        }
-
-        function startReviewSession() {
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
-            // Filter cards that are due
-            // 1. New cards (nextReview === null)
-            // 2. Cards whose nextReview timestamp <= today
-            currentSession = cards.filter(card => {
-                return !card.nextReview || card.nextReview <= today;
-            });
-
-            currentCardIndex = 0;
-            updateSessionUI();
-        }
-
-        function updateSessionUI() {
-            const reviewContainer = document.getElementById('review-container');
-            const emptyState = document.getElementById('empty-state');
-            const controls = document.getElementById('controls');
-            const cardInner = document.getElementById('main-card');
-
-            if (currentSession.length === 0) {
-                reviewContainer.classList.add('hidden');
-                emptyState.classList.remove('hidden');
-                return;
-            }
-
-            reviewContainer.classList.remove('hidden');
-            emptyState.classList.add('hidden');
-            cardInner.classList.remove('is-flipped');
-            controls.classList.add('opacity-0', 'pointer-events-none');
-
-            const card = currentSession[currentCardIndex];
-            document.getElementById('card-front-display').textContent = card.front;
-            document.getElementById('card-back-display').textContent = card.back;
-            document.getElementById('progress-text').textContent = `${currentCardIndex + 1} / ${currentSession.length} Cards`;
-            
-            // Show status based on whether it's a re-run from a mistake
-            document.getElementById('status-label').textContent = card.mistake ? "Reviewing Mistake" : "Today's Target";
-            document.getElementById('status-label').className = card.mistake 
-                ? "text-xs uppercase tracking-wider font-bold text-rose-500" 
-                : "text-xs uppercase tracking-wider font-bold text-indigo-500";
-        }
-
-        function flipCard() {
-            const cardInner = document.getElementById('main-card');
-            const controls = document.getElementById('controls');
-            cardInner.classList.add('is-flipped');
-            controls.classList.remove('opacity-0', 'pointer-events-none');
-        }
-
-        function submitResult(isCorrect) {
-            const card = currentSession[currentCardIndex];
-            const masterCard = cards.find(c => c.id === card.id);
-
-            if (isCorrect) {
-                // If correct, progress the Ebbinghaus level
-                masterCard.level = (masterCard.level || 0) + 1;
-                
-                // If it was a mistake being corrected, reset mistake flag
-                delete masterCard.mistake;
-
-                // Set next review date
-                const intervalDays = INTERVALS[masterCard.level] || (masterCard.level * 5); // Fallback for very high levels
-                const d = new Date();
-                d.setDate(d.getDate() + intervalDays);
-                masterCard.nextReview = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-                
-                // Remove from session
-                currentSession.splice(currentCardIndex, 1);
-            } else {
-                // If wrong, move to end of queue to repeat
-                const failedCard = currentSession.splice(currentCardIndex, 1)[0];
-                failedCard.mistake = true; // Mark as mistake for UI
-                currentSession.push(failedCard);
-            }
-
-            saveData();
-
-            // Adjust index if we removed the last item or reached end
-            if (currentCardIndex >= currentSession.length) {
-                currentCardIndex = 0;
-            }
-
-            updateSessionUI();
-        }
-
-        // --- Data Handling ---
-
-        function saveCard() {
-            const front = document.getElementById('input-front').value.trim();
-            const back = document.getElementById('input-back').value.trim();
-
-            if (!front || !back) return;
-
-            if (editingId) {
-                const idx = cards.findIndex(c => c.id === editingId);
-                cards[idx] = { ...cards[idx], front, back };
-            } else {
-                cards.push({
-                    id: Date.now(),
-                    front,
-                    back,
-                    level: 0,
-                    nextReview: null // null = ready to review immediately
-                });
-            }
-
-            saveData();
-            resetForm();
-            renderCardList();
-        }
-
-        function resetForm() {
-            editingId = null;
-            document.getElementById('input-front').value = '';
-            document.getElementById('input-back').value = '';
-            document.getElementById('form-title').textContent = "Create New Flashcard";
-            document.getElementById('btn-save').textContent = "Add Card";
-            document.getElementById('btn-cancel').classList.add('hidden');
-        }
-
-        function editCard(id) {
-            const card = cards.find(c => c.id === id);
-            editingId = id;
-            document.getElementById('input-front').value = card.front;
-            document.getElementById('input-back').value = card.back;
-            document.getElementById('form-title').textContent = "Edit Flashcard";
-            document.getElementById('btn-save').textContent = "Update Card";
-            document.getElementById('btn-cancel').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function deleteCard(id) {
-            if (confirm('Delete this card?')) {
-                cards = cards.filter(c => c.id !== id);
-                saveData();
-                renderCardList();
-            }
-        }
-
-        function renderCardList() {
-            const list = document.getElementById('card-list');
-            const totalCount = document.getElementById('total-count');
-            totalCount.textContent = `${cards.length} Total`;
-            
-            list.innerHTML = cards.length ? '' : '<p class="text-center text-slate-400 py-4">No cards yet.</p>';
-
-            // Show latest cards first in management
-            [...cards].reverse().forEach(card => {
-                const nextDate = card.nextReview ? new Date(card.nextReview).toLocaleDateString() : 'New';
-                const cardEl = document.createElement('div');
-                cardEl.className = "bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-start group hover:border-indigo-300 transition-colors";
-                cardEl.innerHTML = `
-                    <div class="flex-1 pr-4">
-                        <div class="text-xs font-bold text-indigo-500 mb-1 uppercase tracking-tighter">Level ${card.level} • Next: ${nextDate}</div>
-                        <div class="font-medium text-slate-800 line-clamp-1">${card.front}</div>
-                        <div class="text-sm text-slate-500 line-clamp-1">${card.back}</div>
-                    </div>
-                    <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="editCard(${card.id})" class="p-2 hover:bg-indigo-50 text-indigo-600 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                        </button>
-                        <button onclick="deleteCard(${card.id})" class="p-2 hover:bg-rose-50 text-rose-600 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                        </button>
-                    </div>
-                `;
-                list.appendChild(cardEl);
-            });
-        }
-
-        function saveData() {
-            localStorage.setItem('ebbinghaus_cards', JSON.stringify(cards));
-        }
-
-        // Initialize App
-        init();
-
-    </script>
 </body>
 </html>
