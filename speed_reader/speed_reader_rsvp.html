@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlashRead - RSVP Speed Reader with Songti Serif</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Load Noto Serif SC, Merriweather, Inter, and JetBrains Mono for cross-platform typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+            serif: ['Georgia', 'Merriweather', '"Noto Serif SC"', '"Source Han Serif SC"', '"Songti SC"', 'SimSun', 'STSong', 'serif'],
+            mono: ['"JetBrains Mono"', '"Fira Code"', '"Courier New"', 'monospace'],
+          },
+          colors: {
+            sepia: {
+              50: '#fbf7ee',
+              100: '#f5edd6',
+              200: '#ece0ba',
+              800: '#433422',
+              900: '#2b2114',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Dedicated Chinese Songti serif font-family specification */
+    .font-songti-serif {
+      font-family: 'Georgia', 'Merriweather', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', 'STSong', serif !important;
+    }
+    .font-modern-sans {
+      font-family: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif !important;
+    }
+    .font-code-mono {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
+    }
+
+    /* Theme colors for Sepia warm mode */
+    .sepia-mode {
+      background-color: #fbf7ee !important;
+      color: #382c1e !important;
+    }
+    .sepia-mode .sepia-surface {
+      background-color: #f5edd6 !important;
+      border-color: #e5d7b5 !important;
+    }
+    .sepia-mode .sepia-subtle {
+      background-color: #eee3c4 !important;
+      border-color: #d9c79b !important;
+    }
+
+    /* Fixed pivot layout for the RSVP focal chamber */
+    .rsvp-stage {
+      display: flex;
+      align-items: center;
+      position: relative;
+      height: 150px;
+      user-select: none;
+    }
+    
+    .rsvp-part-left {
+      flex: 1;
+      text-align: right;
+      white-space: pre;
+    }
+    
+    .rsvp-pivot {
+      flex-shrink: 0;
+      color: #ef4444;
+      font-weight: 700;
+      position: relative;
+      text-align: center;
+    }
+
+    .rsvp-part-right {
+      flex: 1;
+      text-align: left;
+      white-space: pre;
+    }
+
+    /* Red ORP fixation markers */
+    .orp-marker-top, .orp-marker-bottom {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 14px;
+      background-color: #ef4444;
+      border-radius: 9999px;
+      opacity: 0.9;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+    }
+    .orp-marker-top { top: 10px; }
+    .orp-marker-bottom { bottom: 10px; }
+
+    /* Custom range thumb */
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ef4444;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body id="appBody" class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen font-modern-sans transition-colors duration-200 flex flex-col justify-between">
+
+  <header class="border-b border-slate-200 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-30 sepia-surface">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 font-bold text-lg">
+          ⚡
+        </div>
+        <div>
+          <span class="font-bold tracking-tight text-lg bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+            Flash<span class="text-red-500">Read</span>
+          </span>
+          <span class="text-[10px] ml-1.5 px-2 py-0.5 rounded font-mono bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 font-medium">Songti / 宋体</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <!-- Font Selection dropdown -->
+        <div class="flex items-center space-x-1.5 text-xs">
+          <label for="fontSelect" class="text-slate-500 hidden sm:inline">字体 / Font:</label>
+          <select id="fontSelect" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 font-medium cursor-pointer">
+            <option value="font-songti-serif" selected>Serif (宋体 / Noto Serif)</option>
+            <option value="font-modern-sans">Sans (黑体 / Inter)</option>
+            <option value="font-code-mono">Mono (等宽 / JetBrains)</option>
+          </select>
+        </div>
+
+        <!-- Theme Switching: Light, Dark, Sepia -->
+        <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 space-x-1">
+          <button id="themeLight" class="p-1.5 rounded-md hover:bg-white dark:hover:bg-slate-700 transition" title="Light Theme">
+            ☀️
+          </button>
+          <button id="themeSepia" class="p-1.5 rounded-md hover:bg-[#ebdcb9] transition" title="Warm Sepia Theme">
+            📖
+          </button>
+          <button id="themeDark" class="p-1.5 rounded-md hover:bg-slate-700 transition" title="Dark Theme">
+            🌙
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 w-full flex-1 flex flex-col justify-center space-y-6">
+
+    <!-- RSVP Stage Card -->
+    <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 sepia-surface">
+      
+      <!-- Top Meta Bar -->
+      <div class="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 mb-2">
+        <div class="flex items-center space-x-3">
+          <span id="currentWordIndexDisplay" class="font-semibold">Word 0 / 0</span>
+          <span class="text-slate-300 dark:text-slate-700">|</span>
+          <span id="estTimeDisplay">ETA: 0m 00s</span>
+          <span class="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
+          <span id="activeFontBadge" class="text-[11px] text-red-500 font-sans hidden sm:inline">Serif (宋体)</span>
+        </div>
+        <div id="statusBadge" class="flex items-center gap-1.5 font-sans font-medium">
+          <span class="w-2 h-2 rounded-full bg-slate-400" id="statusIndicator"></span>
+          <span id="statusText">Ready</span>
+        </div>
+      </div>
+
+      <!-- Optimal Focus Stage Box with Songti Serif default -->
+      <div id="rsvpContainer" class="rsvp-stage relative my-3 bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 rounded-xl overflow-hidden text-3xl sm:text-4xl md:text-5xl font-songti-serif tracking-wide sepia-subtle transition-all">
+        <!-- Target Focus Notches -->
+        <div class="orp-marker-top"></div>
+        <div class="orp-marker-bottom"></div>
+        
+        <!-- Word Parts Centered on ORP Pivot -->
+        <span id="wordPartLeft" class="rsvp-part-left text-slate-800 dark:text-slate-100">速读</span>
+        <span id="wordPivot" class="rsvp-pivot">宋</span>
+        <span id="wordPartRight" class="rsvp-part-right text-slate-800 dark:text-slate-100">体</span>
+      </div>
+
+      <!-- Scrubber Timeline & Scrub Control -->
+      <div class="mt-4 space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+          <span>阅读进度 Progress</span>
+          <span id="percentageDisplay" class="font-mono font-bold">0%</span>
+        </div>
+        <input 
+          id="scrubber" 
+          type="range" 
+          min="0" 
+          max="0" 
+          value="0" 
+          class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+        >
+      </div>
+
+      <!-- Playback Controls and Speed slider -->
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+        
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-2">
+          <button id="btnRewind" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 text-slate-700 dark:text-slate-200" title="Rewind 10 tokens (Left Arrow)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/></svg>
+          </button>
+          
+          <button id="btnPlayPause" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl shadow-lg shadow-red-500/25 active:scale-95 transition flex items-center space-x-2" title="Play / Pause (Space)">
+            <svg id="playIcon" class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pauseIcon" class="w-5 h-5 fill-current hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <span id="btnPlayPauseText">Start</span>
+          </button>
+
+          <button id="btnForward" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 text-slate-700 dark:text-slate-200" title="Forward 10 tokens (Right Arrow)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"/></svg>
+          </button>
+
+          <button id="btnReset" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition active:scale-95" title="Restart from beginning (R)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+
+        <!-- WPM Speed Scrubber -->
+        <div class="flex items-center space-x-3 bg-slate-50 dark:bg-slate-800/60 px-4 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60 flex-1 sm:flex-initial min-w-[260px] sepia-subtle">
+          <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">WPM</span>
+          <input id="wpmSlider" type="range" min="100" max="1000" step="25" value="380" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-500">
+          <div class="w-16 text-right font-mono font-bold text-sm text-red-500">
+            <span id="wpmValue">380</span><span class="text-[10px] text-slate-400 ml-0.5">词/分</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-4 sepia-surface">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-base flex items-center gap-2">
+          <span>输入文本内容 Source Text</span>
+          <span class="text-xs text-slate-400 font-normal">（自动应用所选字体）</span>
+        </h2>
+        <div class="flex items-center space-x-2">
+          <button id="btnSampleZh" class="text-xs px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition font-songti-serif">
+            中文宋体示例
+          </button>
+          <button id="btnSampleMixed" class="text-xs px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition font-songti-serif">
+            中英双语示例
+          </button>
+          <button id="btnClear" class="text-xs px-2.5 py-1 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition">
+            清空 Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Textarea with dynamic font sync -->
+      <textarea 
+        id="textInput" 
+        rows="6" 
+        class="w-full p-3.5 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 text-base leading-relaxed placeholder-slate-400 resize-y font-songti-serif sepia-subtle transition-all"
+        placeholder="在此粘贴文章、论文或阅读笔记... 选择 Serif 时将启用优雅的宋体（Noto Serif SC / SimSun / STSong）。"
+      ></textarea>
+
+      <!-- Tokenizer & Smart Pause Options -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-600 dark:text-slate-400">
+        <div class="flex items-center space-x-4">
+          <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="smartPunctuation" checked class="rounded border-slate-300 text-red-500 focus:ring-red-400">
+            <span>标点智能微停顿 (Smart Pause)</span>
+          </label>
+          <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="chineseChunking" checked class="rounded border-slate-300 text-red-500 focus:ring-red-400">
+            <span>中文智能两字成块 (Natural Chunks)</span>
+          </label>
+        </div>
+
+        <button id="btnLoadAndStart" class="px-5 py-2.5 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 dark:hover:bg-white transition flex items-center space-x-1.5 shadow-sm active:scale-95">
+          <span>载入并立即阅读</span>
+          <span>→</span>
+        </button>
+      </div>
+
+      <!-- Keyboard shortcuts guide -->
+      <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-400">
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">空格 Space</kbd> 播放/暂停</span>
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">← / →</kbd> 快退/快进10词</span>
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">R</kbd> 回到开头</span>
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">Esc</kbd> 停止</span>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="text-center py-4 text-xs text-slate-400 border-t border-slate-200/50 dark:border-slate-800/50">
+    FlashRead • 优雅宋体与衬线字型快速阅读系统
+  </footer>
+
+  <!-- Notification Toast Modal -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium transform translate-y-20 opacity-0 transition duration-300 pointer-events-none z-50 flex items-center space-x-2">
+    <span id="toastIcon">ℹ️</span>
+    <span id="toastMsg">Ready</span>
+  </div>
+
+  <script>
+    // Sample texts highlighting classical Chinese Songti rendering & mixed typography
+    const SAMPLE_ZH = `古人云：“读书百遍，其义自见。”然而在信息爆炸的当下，快速序列视觉呈现（RSVP）技术为专注阅读开拓了崭新维度。当字体切换为典雅的宋体（Songti / SimSun / Noto Serif SC）时，横细竖粗的笔画韵律不仅承袭了雕版印刷的千载沉淀，更能配合中央最佳识别点（ORP）聚焦引导，大幅消减眼球横向跳跃与肌肉疲劳。无论是品读古典诗文，还是精读现代长文，皆能做到心流专注、过目成诵。`;
+
+    const SAMPLE_MIXED = `RSVP (Rapid Serial Visual Presentation) 结合了宋体（Songti Serif）的经典风骨与现代认知心理学。通过固定屏幕视线中心，大脑得以直接处理高密度词流。Research shows that eliminating saccadic eye movement saves up to 80% of reading effort. 无论是 Chinese 汉字词块，还是 English vocabulary，都能以每分钟 400 到 700 词的高速被大脑清晰捕获！`;
+
+    // State Variables
+    let tokens = [];
+    let currentIndex = 0;
+    let isPlaying = false;
+    let timerId = null;
+    let wpm = 380;
+
+    // DOM Elements
+    const appBody = document.getElementById('appBody');
+    const textInput = document.getElementById('textInput');
+    const wordPartLeft = document.getElementById('wordPartLeft');
+    const wordPivot = document.getElementById('wordPivot');
+    const wordPartRight = document.getElementById('wordPartRight');
+    const rsvpContainer = document.getElementById('rsvpContainer');
+    const scrubber = document.getElementById('scrubber');
+    const currentWordIndexDisplay = document.getElementById('currentWordIndexDisplay');
+    const estTimeDisplay = document.getElementById('estTimeDisplay');
+    const percentageDisplay = document.getElementById('percentageDisplay');
+    const activeFontBadge = document.getElementById('activeFontBadge');
+    const statusText = document.getElementById('statusText');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    const btnPlayPauseText = document.getElementById('btnPlayPauseText');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const btnRewind = document.getElementById('btnRewind');
+    const btnForward = document.getElementById('btnForward');
+    const btnReset = document.getElementById('btnReset');
+    const wpmSlider = document.getElementById('wpmSlider');
+    const wpmValue = document.getElementById('wpmValue');
+    const btnLoadAndStart = document.getElementById('btnLoadAndStart');
+    const btnClear = document.getElementById('btnClear');
+    const btnSampleZh = document.getElementById('btnSampleZh');
+    const btnSampleMixed = document.getElementById('btnSampleMixed');
+    const smartPunctuationCheckbox = document.getElementById('smartPunctuation');
+    const chineseChunkingCheckbox = document.getElementById('chineseChunking');
+    const fontSelect = document.getElementById('fontSelect');
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeSepia = document.getElementById('themeSepia');
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+    const toastIcon = document.getElementById('toastIcon');
+
+    // UI Toast Feedback Helper
+    function showToast(message, icon = '💡') {
+      toastMsg.textContent = message;
+      toastIcon.textContent = icon;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2200);
+    }
+
+    /**
+     * Splits text into RSVP tokens supporting both English words and Chinese characters.
+     */
+    function tokenizeText(rawText) {
+      if (!rawText || !rawText.trim()) return [];
+
+      const chunkChinese = chineseChunkingCheckbox.checked;
+      const tokensList = [];
+
+      // Regex matching Chinese characters, alphanumeric words/symbols, or punctuation
+      const regex = /([\u4e00-\u9fa5]+|[a-zA-Z0-9_\-']+|[^\s\w\u4e00-\u9fa5]+)/g;
+      const rawMatches = rawText.match(regex) || [];
+
+      for (let i = 0; i < rawMatches.length; i++) {
+        let chunk = rawMatches[i].trim();
+        if (!chunk) continue;
+
+        const isChinese = /[\u4e00-\u9fa5]/.test(chunk);
+
+        if (isChinese) {
+          if (chunkChinese) {
+            // Group Chinese characters into natural 1 or 2 character chunks
+            for (let c = 0; c < chunk.length; c += 2) {
+              tokensList.push(chunk.substring(c, c + 2));
+            }
+          } else {
+            // 1 character per step
+            for (let c = 0; c < chunk.length; c++) {
+              tokensList.push(chunk[c]);
+            }
+          }
+        } else {
+          // If chunk is standalone punctuation and follows a word, append it to avoid empty beats
+          if (/^[^a-zA-Z0-9]+$/.test(chunk) && tokensList.length > 0) {
+            tokensList[tokensList.length - 1] += chunk;
+          } else {
+            tokensList.push(chunk);
+          }
+        }
+      }
+
+      return tokensList.filter(t => t.trim().length > 0);
+    }
+
+    /**
+     * Calculates Optimal Recognition Point (ORP) index in a token.
+     */
+    function getORPIndex(word) {
+      const len = word.length;
+      if (len <= 1) return 0;
+      if (len === 2) return 0; // For 2-char Chinese tokens or 2-letter words, pivot the 1st char
+      if (len <= 5) return 1;
+      if (len <= 9) return 2;
+      if (len <= 13) return 3;
+      return Math.floor(len * 0.35);
+    }
+
+    /**
+     * Renders current token split into left, pivot, and right components.
+     */
+    function renderCurrentWord() {
+      if (tokens.length === 0) {
+        wordPartLeft.textContent = '粘贴文本';
+        wordPivot.textContent = '开';
+        wordPartRight.textContent = '始阅读';
+        updateStats();
+        return;
+      }
+
+      const word = tokens[currentIndex] || '';
+      const orpIdx = getORPIndex(word);
+
+      const left = word.slice(0, orpIdx);
+      const pivot = word.charAt(orpIdx);
+      const right = word.slice(orpIdx + 1);
+
+      wordPartLeft.textContent = left;
+      wordPivot.textContent = pivot;
+      wordPartRight.textContent = right;
+
+      updateStats();
+    }
+
+    function calculateDelay(token) {
+      const baseDelay = 60000 / wpm;
+      if (!smartPunctuationCheckbox.checked) return baseDelay;
+
+      // Sentence endings
+      if (/[.!?。！？]$/.test(token)) {
+        return baseDelay * 2.1;
+      }
+      // Clause commas and pauses
+      if (/[,;、:，；：]$/.test(token)) {
+        return baseDelay * 1.5;
+      }
+      // Longer words take slightly longer cognitive ingestion
+      if (token.length > 10) {
+        return baseDelay * 1.25;
+      }
+      return baseDelay;
+    }
+
+    function updateStats() {
+      const total = tokens.length;
+      const current = total === 0 ? 0 : currentIndex + 1;
+      
+      currentWordIndexDisplay.textContent = `词元 ${current} / ${total}`;
+      
+      const pct = total === 0 ? 0 : Math.round((current / total) * 100);
+      percentageDisplay.textContent = `${pct}%`;
+      
+      scrubber.max = Math.max(0, total - 1);
+      scrubber.value = currentIndex;
+
+      // Calculate ETA
+      const remainingWords = Math.max(0, total - current);
+      const remainingMinutes = remainingWords / wpm;
+      const mins = Math.floor(remainingMinutes);
+      const secs = Math.floor((remainingMinutes - mins) * 60);
+      estTimeDisplay.textContent = `剩余: ${mins}分 ${secs < 10 ? '0' : ''}${secs}秒`;
+    }
+
+    function stepNext() {
+      if (currentIndex >= tokens.length - 1) {
+        pause();
+        showToast('阅读完成！', '🎉');
+        return;
+      }
+      currentIndex++;
+      renderCurrentWord();
+
+      if (isPlaying) {
+        const currentToken = tokens[currentIndex];
+        const delay = calculateDelay(currentToken);
+        timerId = setTimeout(stepNext, delay);
+      }
+    }
+
+    function play() {
+      if (tokens.length === 0) {
+        loadInputText();
+        if (tokens.length === 0) {
+          showToast('请先输入或粘贴文本内容', '⚠️');
+          return;
+        }
+      }
+
+      if (currentIndex >= tokens.length - 1) {
+        currentIndex = 0;
+      }
+
+      isPlaying = true;
+      btnPlayPauseText.textContent = '暂停 Pause';
+      playIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+
+      statusText.textContent = '阅读中 Reading';
+      statusIndicator.classList.remove('bg-slate-400');
+      statusIndicator.classList.add('bg-emerald-500', 'animate-pulse');
+
+      const currentToken = tokens[currentIndex] || '';
+      const delay = calculateDelay(currentToken);
+      timerId = setTimeout(stepNext, delay);
+    }
+
+    function pause() {
+      isPlaying = false;
+      clearTimeout(timerId);
+      timerId = null;
+
+      btnPlayPauseText.textContent = '继续 Resume';
+      playIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+
+      statusText.textContent = '已暂停 Paused';
+      statusIndicator.classList.remove('bg-emerald-500', 'animate-pulse');
+      statusIndicator.classList.add('bg-amber-400');
+    }
+
+    function togglePlay() {
+      if (isPlaying) {
+        pause();
+      } else {
+        play();
+      }
+    }
+
+    function reset() {
+      pause();
+      currentIndex = 0;
+      btnPlayPauseText.textContent = '开始 Start';
+      statusText.textContent = '准备就绪 Ready';
+      statusIndicator.classList.remove('bg-amber-400', 'bg-emerald-500', 'animate-pulse');
+      statusIndicator.classList.add('bg-slate-400');
+      renderCurrentWord();
+    }
+
+    function jumpBy(delta) {
+      if (tokens.length === 0) return;
+      currentIndex = Math.max(0, Math.min(tokens.length - 1, currentIndex + delta));
+      renderCurrentWord();
+    }
+
+    function loadInputText() {
+      const text = textInput.value;
+      tokens = tokenizeText(text);
+      currentIndex = 0;
+      renderCurrentWord();
+    }
+
+    // Apply font across both display and textarea
+    function applyFont(fontClass) {
+      rsvpContainer.classList.remove('font-songti-serif', 'font-modern-sans', 'font-code-mono');
+      textInput.classList.remove('font-songti-serif', 'font-modern-sans', 'font-code-mono');
+      
+      rsvpContainer.classList.add(fontClass);
+      textInput.classList.add(fontClass);
+
+      if (fontClass === 'font-songti-serif') {
+        activeFontBadge.textContent = 'Serif (宋体 / Noto Serif SC)';
+      } else if (fontClass === 'font-modern-sans') {
+        activeFontBadge.textContent = 'Sans (黑体 / Inter)';
+      } else {
+        activeFontBadge.textContent = 'Mono (等宽 / JetBrains Mono)';
+      }
+    }
+
+    // Theme Switchers
+    function setTheme(theme) {
+      document.documentElement.classList.remove('dark');
+      appBody.classList.remove('sepia-mode');
+
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        showToast('已切换至暗色模式', '🌙');
+      } else if (theme === 'sepia') {
+        appBody.classList.add('sepia-mode');
+        showToast('已切换至护眼羊皮纸模式', '📖');
+      } else {
+        showToast('已切换至明亮模式', '☀️');
+      }
+    }
+
+    btnPlayPause.addEventListener('click', togglePlay);
+    btnRewind.addEventListener('click', () => jumpBy(-10));
+    btnForward.addEventListener('click', () => jumpBy(10));
+    btnReset.addEventListener('click', reset);
+
+    scrubber.addEventListener('input', (e) => {
+      if (tokens.length === 0) return;
+      currentIndex = parseInt(e.target.value, 10);
+      renderCurrentWord();
+    });
+
+    wpmSlider.addEventListener('input', (e) => {
+      wpm = parseInt(e.target.value, 10);
+      wpmValue.textContent = wpm;
+      updateStats();
+    });
+
+    btnLoadAndStart.addEventListener('click', () => {
+      loadInputText();
+      if (tokens.length > 0) {
+        play();
+        showToast(`已成功载入 ${tokens.length} 个词块`, '🚀');
+      } else {
+        showToast('文本框为空，请先粘贴文字', '⚠️');
+      }
+    });
+
+    btnClear.addEventListener('click', () => {
+      textInput.value = '';
+      tokens = [];
+      reset();
+      showToast('已清空内容', '🗑️');
+    });
+
+    btnSampleZh.addEventListener('click', () => {
+      textInput.value = SAMPLE_ZH;
+      fontSelect.value = 'font-songti-serif';
+      applyFont('font-songti-serif');
+      loadInputText();
+      showToast('已载入宋体长文示例', '📜');
+    });
+
+    btnSampleMixed.addEventListener('click', () => {
+      textInput.value = SAMPLE_MIXED;
+      fontSelect.value = 'font-songti-serif';
+      applyFont('font-songti-serif');
+      loadInputText();
+      showToast('已载入中英混合宋体示例', '🔤');
+    });
+
+    // Font select change listener
+    fontSelect.addEventListener('change', (e) => {
+      applyFont(e.target.value);
+      showToast(`已更换字体: ${fontSelect.options[fontSelect.selectedIndex].text}`, '✍️️');
+    });
+
+    // Theme buttons
+    themeLight.addEventListener('click', () => setTheme('light'));
+    themeDark.addEventListener('click', () => setTheme('dark'));
+    themeSepia.addEventListener('click', () => setTheme('sepia'));
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement === textInput) {
+        // If inside textarea, allow Esc to blur out
+        if (e.key === 'Escape') textInput.blur();
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        jumpBy(-10);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        jumpBy(10);
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        reset();
+      } else if (e.key === 'Escape') {
+        pause();
+      }
+    });
+
+    // Initialize with Songti Serif and default sample
+    window.addEventListener('DOMContentLoaded', () => {
+      applyFont('font-songti-serif');
+      textInput.value = SAMPLE_ZH;
+      loadInputText();
+      updateStats();
+    });
+  </script>
+</body>
+</html>
