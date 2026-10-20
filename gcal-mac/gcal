@@ -1,0 +1,89 @@
+#!/bin/zsh
+# gcal — open a pre-filled Google Calendar "new event" page in the browser.
+#        Just press Save (or Enter) in the page. No API / OAuth needed.
+#
+# Usage:
+#   gcal 15:30 "call Bob"              # today at 15:30 (tomorrow if already passed)
+#   gcal 1530 "call Bob"               # same; also 930, 3pm, 330pm, 3:30pm, 12am
+#   gcal 30m "stretch"                 # 30 minutes from now (also 1h, 1h30m, 90s)
+#   gcal tmr 9:00 "dentist"            # tomorrow at 09:00
+#   gcal 2026-10-25 14:00 "PMLE exam"  # specific date
+#   gcal -d 45 15:30 "1:1 w/ lead"     # -d = duration in minutes (default 15)
+#   gcal -a 2026-10-25 "Public holiday"# all-day event
+#
+# Reminder popups follow your Calendar default notification setting
+# (Settings → Event settings → Notifications), so set that once to e.g. 10 min.
+
+dur=15; allday=0
+while [[ "$1" == -* ]]; do
+  case "$1" in
+    -d) dur="$2"; shift 2 ;;
+    -a) allday=1; shift ;;
+    -h|--help) sed -n "2,15p" "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown flag $1"; exit 1 ;;
+  esac
+done
+[[ -z "$1" ]] && { sed -n "2,15p" "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+
+urlenc() { python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$1"; }
+
+# normalize clock-time shorthands → HH:MM  (returns 1 if not a clock time)
+#   1530 → 15:30   930 → 09:30   15:30 → 15:30
+#   3pm → 15:00    330pm → 15:30   3:30pm → 15:30   12am → 00:00   12pm → 12:00
+norm_time() {
+  local s="${1:l}" h m ap=""
+  if [[ "$s" =~ ^([0-9]{1,2})(:?([0-9]{2}))?(am|pm)$ ]]; then
+    h=${match[1]}; m=${match[3]:-00}; ap=${match[4]}
+    (( h == 12 )) && h=0
+    [[ "$ap" == pm ]] && (( h += 12 ))
+  elif [[ "$s" =~ ^([0-9]{1,2}):([0-9]{2})$ ]]; then
+    h=${match[1]}; m=${match[2]}
+  elif [[ "$s" =~ ^([0-9]{1,2})([0-9]{2})$ ]]; then      # 1530 / 930
+    h=${match[1]}; m=${match[2]}
+  else
+    return 1
+  fi
+  (( 10#$h <= 23 && 10#$m <= 59 )) || return 1
+  printf "%02d:%02d" $((10#$h)) $((10#$m))
+}
+
+day=""   # YYYY-MM-DD or empty = today
+# ---- optional date token --------------------------------------------------
+case "$1" in
+  tmr|tomorrow) day=$(date -v+1d +%F); shift ;;
+  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) day="$1"; shift ;;
+esac
+
+if (( allday )); then
+  [[ -z "$day" ]] && day=$(date +%F)
+  title="${*:-Reminder}"
+  s=$(date -j -f %F "$day" +%Y%m%d)
+  e=$(date -j -v+1d -f %F "$day" +%Y%m%d)
+  dates="${s}/${e}"
+else
+  t="$1"; shift
+  title="${*:-Reminder}"
+  if hhmm=$(norm_time "$t"); then
+    explicit_day=1; [[ -z "$day" ]] && { day=$(date +%F); explicit_day=0; }
+    start=$(date -j -f "%F %H:%M:%S" "$day $hhmm:00" +%s) || { echo "bad time"; exit 1; }
+    # no date given & time already passed today → tomorrow
+    (( ! explicit_day )) && (( start <= $(date +%s) )) && start=$(( start + 86400 ))
+  elif [[ "$t" =~ ^([0-9]+h)?([0-9]+m)?([0-9]+s)?$ ]]; then
+    h=0 m=0 sec=0
+    [[ "$t" =~ ([0-9]+)h ]] && h=${match[1]}
+    [[ "$t" =~ ([0-9]+)m ]] && m=${match[1]}
+    [[ "$t" =~ ([0-9]+)s ]] && sec=${match[1]}
+    start=$(( $(date +%s) + h*3600 + m*60 + sec ))
+    start=$(( start - start % 60 ))   # round down to the minute
+  else
+    echo "bad time: $t  (e.g. 1530, 15:30, 3pm, 330pm, 30m, 1h30m, tmr 9:00, 2026-10-25 14:00)"; exit 1
+  fi
+  end=$(( start + dur*60 ))
+  # local wall-clock time + ctz keeps it in your calendar's timezone
+  dates="$(date -r $start +%Y%m%dT%H%M%S)/$(date -r $end +%Y%m%dT%H%M%S)"
+fi
+
+tz=$(readlink /etc/localtime | sed 's#.*/zoneinfo/##')
+url="https://calendar.google.com/calendar/render?action=TEMPLATE&text=$(urlenc "$title")&dates=${dates}&ctz=$(urlenc "$tz")"
+echo "📅 $title  →  $dates ($tz)"
+open "$url"
